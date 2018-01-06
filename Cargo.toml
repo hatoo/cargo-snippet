@@ -1,0 +1,22 @@
+[package]
+name = "cargo-snippet"
+version = "0.1.0"
+authors = ["hatoo <hato2000@gmail.com>"]
+
+[lib]
+plugin = true
+path = "src/lib.rs"
+
+[[bin]]
+name = "cargo-snippet"
+path = "src/main.rs"
+required-features = ["binaries"]
+
+[dependencies]
+syn = { git = "https://github.com/dtolnay/syn.git", features = ["full", "parsing", "extra-traits", "printing"], optional = true }
+quote = { git = "https://github.com/dtolnay/quote", optional = true }
+rustfmt-nightly = { git = "https://github.com/rust-lang-nursery/rustfmt.git", optional = true }
+glob = { version = "0.2", optional = true }
+
+[features]
+binaries = ["syn", "quote", "rustfmt-nightly", "glob"]
