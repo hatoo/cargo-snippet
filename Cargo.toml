@@ -17,6 +17,7 @@ syn = { git = "https://github.com/dtolnay/syn.git", features = ["full", "parsing
 quote = { git = "https://github.com/dtolnay/quote", optional = true }
 rustfmt-nightly = { git = "https://github.com/rust-lang-nursery/rustfmt.git", optional = true }
 glob = { version = "0.2", optional = true }
+clap = { version = "2.29", optional = true }
 
 [features]
-binaries = ["syn", "quote", "rustfmt-nightly", "glob"]
+binaries = ["syn", "quote", "rustfmt-nightly", "glob", "clap"]

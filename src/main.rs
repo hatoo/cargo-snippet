@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate clap;
 extern crate glob;
 extern crate quote;
 extern crate rustfmt_nightly;
@@ -5,41 +7,54 @@ extern crate syn;
 
 mod parser;
 mod fsutil;
+mod config;
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
 
-use rustfmt_nightly::config::Config;
+use clap::{App, AppSettings, Arg, SubCommand};
 
 fn main() {
+    // Setup for cargo subcommand
+    let matches = App::new("cargo-snippet")
+        .version(crate_version!())
+        .bin_name("cargo")
+        .settings(&[
+            AppSettings::GlobalVersion,
+            AppSettings::SubcommandRequired,
+        ])
+        .subcommand(
+            SubCommand::with_name("snippet")
+                .author(crate_authors!())
+                .about("Extract code snippet from cargo projects")
+                .arg(Arg::with_name("PATH").multiple(true).help(
+                    "The files or directories (including children) \
+                     to extract snippet (defaults to <project_root>/src when omitted)",
+                )),
+        )
+        .get_matches();
+
+    let config = config::Config::from_matches(&matches);
+
     // Alphabetical order
     let mut snippets = BTreeMap::new();
 
-    if let Some(mut path) = fsutil::project_root_path() {
-        path.push("src");
-        path.push("**");
-        path.push("*.rs");
-
-        let mut buf = String::new();
-        for path in glob::glob(&format!("{}", path.display()))
-            .unwrap()
-            .filter_map(Result::ok)
-        {
-            buf.clear();
-            if let Ok(mut file) = fs::File::open(path) {
-                if file.read_to_string(&mut buf).is_ok() {
-                    for (name, content) in parser::parse_snippet(&buf) {
-                        *snippets.entry(name).or_insert(String::new()) += &content;
-                    }
+    let mut buf = String::new();
+    for path in config.iter_paths() {
+        buf.clear();
+        if let Ok(mut file) = fs::File::open(path) {
+            if file.read_to_string(&mut buf).is_ok() {
+                for (name, content) in parser::parse_snippet(&buf) {
+                    *snippets.entry(name).or_insert(String::new()) += &content;
                 }
             }
         }
     }
 
-    let config = Config::default();
+    let rustfmt_config = rustfmt_nightly::Config::default();
     for (name, content) in snippets.into_iter() {
-        if let Some(formatted) = rustfmt_nightly::format_snippet(&content, &config) {
+        if let Some(formatted) = rustfmt_nightly::format_snippet(&content, &rustfmt_config) {
             println!("snippet {}", name);
             for line in formatted.lines() {
                 println!("    {}", line);
