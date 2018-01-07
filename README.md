@@ -96,6 +96,10 @@ snippet lcm
     }
 ```
 
+## Example
+
+My snippets [here](https://github.com/hatoo/competitive-rust-snippets.git).
+
 ## Supported output format
 
 Currently this only supports neosnippet format.
