@@ -7,27 +7,48 @@ use glob::glob;
 use fsutil;
 
 #[derive(Debug)]
-pub enum Config<'a> {
+pub struct Config<'a> {
+    pub target: Target<'a>,
+    pub output_type: OutputType,
+}
+
+#[derive(Debug)]
+pub enum Target<'a> {
     // <project_root>/src. Default
     ProjectSrc,
     // Args
     Paths(Vec<&'a str>),
 }
 
+#[derive(Debug)]
+pub enum OutputType {
+    Neosnippet,
+    VScode,
+}
+
 impl<'a> Config<'a> {
     pub fn from_matches(matches: &'a ArgMatches) -> Self {
+        Config {
+            target: Target::from_matches(matches),
+            output_type: OutputType::from_matches(matches),
+        }
+    }
+}
+
+impl<'a> Target<'a> {
+    fn from_matches(matches: &'a ArgMatches) -> Self {
         matches
             .subcommand_matches("snippet")
             .and_then(|m| {
                 m.values_of("PATH")
-                    .map(|path| Config::Paths(path.collect()))
+                    .map(|path| Target::Paths(path.collect()))
             })
-            .unwrap_or(Config::ProjectSrc)
+            .unwrap_or(Target::ProjectSrc)
     }
 
     pub fn iter_paths(&self) -> Box<Iterator<Item = PathBuf> + 'a> {
         match self {
-            &Config::ProjectSrc => fsutil::project_root_path()
+            &Target::ProjectSrc => fsutil::project_root_path()
                 .and_then(|mut path| {
                     path.push("src");
                     path.push("**");
@@ -37,7 +58,7 @@ impl<'a> Config<'a> {
                     })
                 })
                 .unwrap_or(Box::new(iter::empty())),
-            &Config::Paths(ref v) => Box::new(
+            &Target::Paths(ref v) => Box::new(
                 v.clone()
                     .into_iter()
                     .filter_map(|s| {
@@ -58,5 +79,19 @@ impl<'a> Config<'a> {
                     .flat_map(|i| i),
             ),
         }
+    }
+}
+
+impl OutputType {
+    fn from_matches(matches: &ArgMatches) -> Self {
+        matches
+            .subcommand_matches("snippet")
+            .and_then(|m| {
+                m.value_of("output_type").map(|t| match t {
+                    "vscode" => OutputType::VScode,
+                    _ => OutputType::Neosnippet,
+                })
+            })
+            .unwrap_or(OutputType::Neosnippet)
     }
 }

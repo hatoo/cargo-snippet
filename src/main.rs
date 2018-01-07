@@ -8,6 +8,7 @@ extern crate syn;
 mod parser;
 mod fsutil;
 mod config;
+mod writer;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -31,7 +32,14 @@ fn main() {
                 .arg(Arg::with_name("PATH").multiple(true).help(
                     "The files or directories (including children) \
                      to extract snippet (defaults to <project_root>/src when omitted)",
-                )),
+                ))
+                .arg(
+                    Arg::with_name("output_type")
+                        .long("type")
+                        .short("t")
+                        .default_value("neosnippet")
+                        .possible_values(&["neosnippet", "vscode"]),
+                ),
         )
         .get_matches();
 
@@ -41,7 +49,7 @@ fn main() {
     let mut snippets = BTreeMap::new();
 
     let mut buf = String::new();
-    for path in config.iter_paths() {
+    for path in config.target.iter_paths() {
         buf.clear();
         if let Ok(mut file) = fs::File::open(path) {
             if file.read_to_string(&mut buf).is_ok() {
@@ -52,14 +60,5 @@ fn main() {
         }
     }
 
-    let rustfmt_config = rustfmt_nightly::Config::default();
-    for (name, content) in snippets.into_iter() {
-        if let Some(formatted) = rustfmt_nightly::format_snippet(&content, &rustfmt_config) {
-            println!("snippet {}", name);
-            for line in formatted.lines() {
-                println!("    {}", line);
-            }
-            println!();
-        }
-    }
+    writer::write_neosnippet(&snippets);
 }
