@@ -1,6 +1,6 @@
 # cargo-snippet
 
-A cargo subcommand to extract code snippet from project for competitive programmers.
+Snippet extractor for competitive programmers.
 
 You can manage code snippet with test and bench !!
 
@@ -14,7 +14,7 @@ $ cargo install --git https://github.com/hatoo/cargo-snippet.git --features="bin
 
 ## Usage
 
-Create project for snippet.
+Create a project for snippet.
 
 ```
 $ cargo new mysnippet
@@ -27,7 +27,7 @@ Add dependencies to Cargo.toml.
 cargo-snippet = { git = "https://github.com/hatoo/cargo-snippet.git" }
 ```
 
-Add this to lib.rs.
+Add this to src/lib.rs.
 
 ```rust
 #![feature(plugin)]
@@ -40,7 +40,7 @@ write some snippet code and test.
 #![feature(plugin)]
 #![plugin(cargo_snippet)]
 
-// Annotate snippet
+// Annotate snippet name
 #[snippet = "gcd"]
 #[allow(dead_code)]
 fn gcd(a: u64, b: u64) -> u64 {
@@ -51,9 +51,21 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 
+// Also OK
+#[snippet(name = "lcm")]
+#[allow(dead_code)]
+fn lcm(a: u64, b: u64) -> u64 {
+    a / gcd(a, b) * b
+}
+
 #[test]
 fn test_gcd() {
     assert_eq!(gcd(57, 3), 3);
+}
+
+#[test]
+fn test_lcm() {
+    assert_eq!(lcm(3, 19), 57);
 }
 ```
 
@@ -76,5 +88,14 @@ snippet gcd
             gcd(b, a % b)
         }
     }
+
+snippet lcm
+    #[allow(dead_code)]
+    fn lcm(a: u64, b: u64) -> u64 {
+        a / gcd(a, b) * b
+    }
 ```
 
+## Supported output format
+
+Currently this only supports neosnippet format.
