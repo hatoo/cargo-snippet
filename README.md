@@ -102,4 +102,8 @@ My snippets [here](https://github.com/hatoo/competitive-rust-snippets.git).
 
 ## Supported output format
 
-Currently this only supports neosnippet format.
+* Neosnippet
+* VScode
+
+You can specify output format via `-t` option.
+See `cargo snippet -h`
