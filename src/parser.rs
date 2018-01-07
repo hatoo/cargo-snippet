@@ -97,7 +97,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 .filter_map(|item| {
                     if let &NestedMetaItem::MetaItem(MetaItem::NameValue(ref nv)) = item {
                         if format!("{}", nv.ident) == "name" {
-                            Some(unquote(&format!("{:?}", nv.lit)))
+                            Some(unquote(&format!("{}", nv.lit.clone().into_tokens())))
                         } else {
                             None
                         }
