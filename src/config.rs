@@ -2,8 +2,10 @@ use clap::ArgMatches;
 use std::path::{Path, PathBuf};
 use std::iter;
 use std::fs;
+use std::collections::BTreeMap;
 
 use glob::glob;
+use writer;
 use fsutil;
 
 #[derive(Debug)]
@@ -93,5 +95,16 @@ impl OutputType {
                 })
             })
             .unwrap_or(OutputType::Neosnippet)
+    }
+
+    pub fn write(&self, snippets: &BTreeMap<String, String>) {
+        match self {
+            &OutputType::Neosnippet => {
+                writer::write_neosnippet(snippets);
+            }
+            &OutputType::VScode => {
+                writer::write_vscode(snippets);
+            }
+        }
     }
 }

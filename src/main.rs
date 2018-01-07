@@ -3,6 +3,10 @@ extern crate clap;
 extern crate glob;
 extern crate quote;
 extern crate rustfmt_nightly;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 extern crate syn;
 
 mod parser;
@@ -60,5 +64,5 @@ fn main() {
         }
     }
 
-    writer::write_neosnippet(&snippets);
+    config.output_type.write(&snippets);
 }
