@@ -1,4 +1,4 @@
-use syn::{parse_file, Attribute, File, Item, MetaItem, NestedMetaItem};
+use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 use quote::ToTokens;
 
 macro_rules! get_attrs_impl {
@@ -43,7 +43,7 @@ macro_rules! remove_snippet_attr_impl {
                 $(
                     &mut $v(ref mut x) => {
                         x.attrs.retain(|attr| {
-                            attr.meta_item().map(|m| m.name()!="snippet").unwrap_or(true)
+                            attr.interpret_meta().map(|m| m.name().to_string() != "snippet").unwrap_or(true)
                         });
                     },
                 )*
@@ -94,17 +94,17 @@ fn unquote(s: &str) -> String {
 }
 
 fn get_snippet_name(attr: &Attribute) -> Option<String> {
-    attr.meta_item().and_then(|metaitem| {
-        if metaitem.name() != "snippet" {
+    attr.interpret_meta().and_then(|metaitem| {
+        if metaitem.name().to_string() != "snippet" {
             return None;
         }
 
         match metaitem {
             // #[snippet(name="..")]
-            MetaItem::List(list) => list.nested
+            Meta::List(list) => list.nested
                 .iter()
                 .filter_map(|item| {
-                    if let &NestedMetaItem::MetaItem(MetaItem::NameValue(ref nv)) = item {
+                    if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
                         if format!("{}", nv.ident) == "name" {
                             Some(unquote(&format!("{}", nv.lit.clone().into_tokens())))
                         } else {
@@ -116,7 +116,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 })
                 .next(),
             // #[snippet=".."]
-            MetaItem::NameValue(nv) => Some(unquote(&format!("{}", nv.lit.into_tokens()))),
+            Meta::NameValue(nv) => Some(unquote(&format!("{}", nv.lit.into_tokens()))),
             _ => None,
         }
     })
@@ -165,8 +165,8 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     for name in snip_names {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
-            attr.meta_item()
-                .map(|m| m.name() != "snippet")
+            attr.interpret_meta()
+                .map(|m| m.name().to_string() != "snippet")
                 .unwrap_or(true)
         });
         file.items.iter_mut().for_each(|item| {
