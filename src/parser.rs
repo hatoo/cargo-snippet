@@ -223,4 +223,28 @@ mod test {
             assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
         }
     }
+
+    #[test]
+    fn test_deep() {
+        let src = r#"
+            #[snippet = "bar"]
+            fn bar() {}
+
+            #[snippet = "foo"]
+            mod foo {
+                #[snippet = "hoge"]
+                fn hoge() {}
+            }
+        "#;
+
+        let snip = snippets(&src);
+
+        assert_eq!(snip.get("bar"), Some(&quote!(fn bar(){}).to_string()));
+        assert_eq!(
+            snip.get("foo"),
+            // #[snippet = "hoge"] should be removed.
+            Some(&quote!(mod foo{fn hoge(){}}).to_string())
+        );
+        assert_eq!(snip.get("hoge"), Some(&quote!(fn hoge(){}).to_string()));
+    }
 }
