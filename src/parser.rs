@@ -113,18 +113,18 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
     })
 }
 
-// snippet name and snippet code (not formatted)
-fn get_snippet_from_item(mut item: Item) -> Option<(String, String)> {
-    let snip_name = get_attrs(&item).and_then(|attrs| {
+// Get snippet names and snippet code (not formatted)
+fn get_snippet_from_item(mut item: Item) -> Option<(Vec<String>, String)> {
+    let snip_names = get_attrs(&item).map(|attrs| {
         attrs
             .iter()
             .filter_map(|attr| get_snippet_name(attr))
-            .next()
+            .collect()
     });
 
-    snip_name.map(|name| {
+    snip_names.map(|names| {
         remove_snippet_attr(&mut item);
-        (name, format!("{}", item.into_tokens()))
+        (names, format!("{}", item.into_tokens()))
     })
 }
 
@@ -132,12 +132,12 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     let mut res = Vec::new();
 
     // whole code is snippet
-    let snip_name = file.attrs
+    let snip_names = file.attrs
         .iter()
         .filter_map(|attr| get_snippet_name(attr))
-        .next();
+        .collect::<Vec<_>>();
 
-    if let Some(name) = snip_name {
+    for name in snip_names {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
             attr.meta_item()
@@ -153,7 +153,10 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     res.extend(
         file.items
             .into_iter()
-            .filter_map(|item| get_snippet_from_item(item)),
+            .filter_map(|item| get_snippet_from_item(item))
+            .flat_map(|(names, content)| {
+                names.into_iter().map(move |name| (name, content.clone()))
+            }),
     );
 
     res
@@ -193,15 +196,31 @@ mod test {
 
     #[test]
     fn test_multiple_annotaton() {
-        let src = r#"
-            #[snippet="test1"]
-            #[snippet="test2"]
-            fn test() {}
-        "#;
+        {
+            let src = r#"
+                #[snippet="test1"]
+                #[snippet="test2"]
+                fn test() {}
+            "#;
 
-        let snip = snippets(&src);
+            let snip = snippets(&src);
 
-        assert_eq!(snip.get("test1"), Some(&quote!(fn test(){}).to_string()));
-        assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
+            assert_eq!(snip.get("test1"), Some(&quote!(fn test(){}).to_string()));
+            assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
+        }
+
+        {
+            let src = r#"
+                #![snippet="test1"]
+                #![snippet="test2"]
+
+                fn test() {}
+            "#;
+
+            let snip = snippets(&src);
+
+            assert_eq!(snip.get("test1"), Some(&quote!(fn test(){}).to_string()));
+            assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
+        }
     }
 }
