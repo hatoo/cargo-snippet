@@ -1,7 +1,10 @@
 #[macro_use]
 extern crate clap;
 extern crate glob;
+#[cfg(test)]
 #[macro_use]
+extern crate quote;
+#[cfg(not(test))]
 extern crate quote;
 extern crate rustfmt_nightly;
 extern crate serde;
