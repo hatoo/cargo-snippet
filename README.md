@@ -1,6 +1,6 @@
 # cargo-snippet
 
-Snippet extractor for competitive programmers.
+A snippet extractor for competitive programmers.
 
 You can manage code snippet with test and bench !!
 
@@ -34,13 +34,14 @@ Add this to src/lib.rs.
 #![plugin(cargo_snippet)]
 ```
 
-write some snippet code and test.
+Write some snippet codes and tests.
 
 ```rust
 #![feature(plugin)]
 #![plugin(cargo_snippet)]
 
 // Annotate snippet name
+#[snippet = "mymath"]
 #[snippet = "gcd"]
 #[allow(dead_code)]
 fn gcd(a: u64, b: u64) -> u64 {
@@ -51,8 +52,8 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 
-// Also OK
-#[snippet(name = "lcm")]
+// Also works
+#[snippet = "mymath"]
 #[allow(dead_code)]
 fn lcm(a: u64, b: u64) -> u64 {
     a / gcd(a, b) * b
@@ -89,7 +90,15 @@ snippet gcd
         }
     }
 
-snippet lcm
+snippet mymath
+    #[allow(dead_code)]
+    fn gcd(a: u64, b: u64) -> u64 {
+        if b == 0 {
+            a
+        } else {
+            gcd(b, a % b)
+        }
+    }
     #[allow(dead_code)]
     fn lcm(a: u64, b: u64) -> u64 {
         a / gcd(a, b) * b
@@ -106,4 +115,4 @@ My snippets [here](https://github.com/hatoo/competitive-rust-snippets.git).
 * VScode
 
 You can specify output format via `-t` option.
-See `cargo snippet -h`
+See `cargo snippet -h`.
