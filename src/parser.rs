@@ -71,7 +71,16 @@ fn remove_snippet_attr(item: &mut Item) {
         Item::Impl,
         Item::Macro,
         Item::Macro2
-    )
+    );
+
+    match item {
+        &mut Item::Mod(ref mut item_mod) => {
+            if let Some(&mut (_, ref mut items)) = item_mod.content.as_mut() {
+                items.iter_mut().for_each(|item| remove_snippet_attr(item));
+            }
+        }
+        _ => (),
+    }
 }
 
 fn unquote(s: &str) -> String {
