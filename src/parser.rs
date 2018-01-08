@@ -137,6 +137,22 @@ fn get_snippet_from_item(mut item: Item) -> Option<(Vec<String>, String)> {
     })
 }
 
+fn get_snippet_from_item_recursive(item: Item) -> Vec<(Vec<String>, String)> {
+    let mut res = Vec::new();
+
+    if let Some(pair) = get_snippet_from_item(item.clone()) {
+        res.push(pair);
+    }
+
+    if let Item::Mod(mod_item) = item {
+        res.extend(mod_item.content.into_iter().flat_map(|(_, items)| {
+            items.into_iter().flat_map(get_snippet_from_item_recursive)
+        }));
+    }
+
+    res
+}
+
 fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     let mut res = Vec::new();
 
@@ -162,7 +178,7 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     res.extend(
         file.items
             .into_iter()
-            .filter_map(|item| get_snippet_from_item(item))
+            .flat_map(|item| get_snippet_from_item_recursive(item))
             .flat_map(|(names, content)| {
                 names.into_iter().map(move |name| (name, content.clone()))
             }),
