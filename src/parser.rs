@@ -105,8 +105,8 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 .iter()
                 .filter_map(|item| {
                     if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
-                        if format!("{}", nv.ident) == "name" {
-                            Some(unquote(&format!("{}", nv.lit.clone().into_tokens())))
+                        if nv.ident.to_string() == "name" {
+                            Some(unquote(&nv.lit.clone().into_tokens().to_string()))
                         } else {
                             None
                         }
@@ -116,7 +116,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 })
                 .next(),
             // #[snippet=".."]
-            Meta::NameValue(nv) => Some(unquote(&format!("{}", nv.lit.into_tokens()))),
+            Meta::NameValue(nv) => Some(unquote(&nv.lit.into_tokens().to_string())),
             _ => None,
         }
     })
@@ -133,7 +133,7 @@ fn get_snippet_from_item(mut item: Item) -> Option<(Vec<String>, String)> {
 
     snip_names.map(|names| {
         remove_snippet_attr(&mut item);
-        (names, format!("{}", item.into_tokens()))
+        (names, item.into_tokens().to_string())
     })
 }
 
@@ -172,7 +172,7 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
         file.items.iter_mut().for_each(|item| {
             remove_snippet_attr(item);
         });
-        res.push((name, format!("{}", file.into_tokens())));
+        res.push((name, file.into_tokens().to_string()));
     }
 
     res.extend(
