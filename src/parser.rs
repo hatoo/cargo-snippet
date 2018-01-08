@@ -165,3 +165,43 @@ pub fn parse_snippet(src: &str) -> Vec<(String, String)> {
         .map(|file| get_snippet_from_file(file))
         .unwrap_or(Vec::new())
 }
+
+#[cfg(test)]
+mod test {
+    use super::parse_snippet;
+    use std::collections::BTreeMap;
+
+    fn snippets(src: &str) -> BTreeMap<String, String> {
+        let mut res = BTreeMap::new();
+        for (name, content) in parse_snippet(src) {
+            *res.entry(name).or_insert(String::new()) += &content;
+        }
+        res
+    }
+
+    #[test]
+    fn test_parse_simple_case() {
+        let src = r#"
+            #[snippet="test"]
+            fn test() {}
+        "#;
+
+        let snip = snippets(&src);
+
+        assert_eq!(snip.get("test"), Some(&quote!(fn test(){}).to_string()));
+    }
+
+    #[test]
+    fn test_multiple_annotaton() {
+        let src = r#"
+            #[snippet="test1"]
+            #[snippet="test2"]
+            fn test() {}
+        "#;
+
+        let snip = snippets(&src);
+
+        assert_eq!(snip.get("test1"), Some(&quote!(fn test(){}).to_string()));
+        assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
+    }
+}

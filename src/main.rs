@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 extern crate glob;
+#[macro_use]
 extern crate quote;
 extern crate rustfmt_nightly;
 extern crate serde;
