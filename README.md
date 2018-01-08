@@ -53,7 +53,7 @@ fn gcd(a: u64, b: u64) -> u64 {
 }
 
 // Also works
-#[snippet = "mymath"]
+#[snippet(name = "mymath")]
 #[allow(dead_code)]
 fn lcm(a: u64, b: u64) -> u64 {
     a / gcd(a, b) * b
