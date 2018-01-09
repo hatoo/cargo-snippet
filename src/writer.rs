@@ -8,11 +8,22 @@ struct VScode {
     body: Vec<String>,
 }
 
-pub fn write_neosnippet(snippets: &BTreeMap<String, String>) {
-    let rustfmt_config = rustfmt_nightly::Config::default();
+fn format_src(src: &str) -> Option<String> {
+    let mut rustfmt_config = rustfmt_nightly::config::Config::default();
+    rustfmt_config
+        .set()
+        .write_mode(rustfmt_nightly::config::WriteMode::Plain);
 
+    let mut out = Vec::with_capacity(src.len() * 2);
+    let input = rustfmt_nightly::Input::Text(src.into());
+    rustfmt_nightly::format_input(input, &rustfmt_config, Some(&mut out))
+        .ok()
+        .and_then(|_| String::from_utf8(out).ok())
+}
+
+pub fn write_neosnippet(snippets: &BTreeMap<String, String>) {
     for (name, content) in snippets.iter() {
-        if let Some(formatted) = rustfmt_nightly::format_snippet(content, &rustfmt_config) {
+        if let Some(formatted) = format_src(content) {
             println!("snippet {}", name);
             for line in formatted.lines() {
                 println!("    {}", line);
@@ -23,12 +34,10 @@ pub fn write_neosnippet(snippets: &BTreeMap<String, String>) {
 }
 
 pub fn write_vscode(snippets: &BTreeMap<String, String>) {
-    let rustfmt_config = rustfmt_nightly::Config::default();
-
     let vscode: BTreeMap<String, VScode> = snippets
         .iter()
         .filter_map(|(name, content)| {
-            rustfmt_nightly::format_snippet(content, &rustfmt_config).map(|formatted| {
+            format_src(content).map(|formatted| {
                 (
                     name.to_owned(),
                     VScode {
