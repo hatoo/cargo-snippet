@@ -1,5 +1,7 @@
 # cargo-snippet
 
+[![crates.io](https://img.shields.io/crates/v/cargo-snippet.svg)](https://crates.io/crates/cargo-snippet)
+
 A snippet extractor for competitive programmers.
 
 You can manage code snippet with test and bench !!
