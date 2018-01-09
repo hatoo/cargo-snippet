@@ -9,7 +9,7 @@ You can manage code snippet with test and bench !!
 You need nightly rust.
 
 ```
-$ cargo install --git https://github.com/hatoo/cargo-snippet.git --features="binaries"
+$ cargo install cargo-snippet --features="binaries"
 ```
 
 ## Usage
@@ -24,7 +24,7 @@ Add dependencies to Cargo.toml.
 
 ```toml
 [dependencies]
-cargo-snippet = { git = "https://github.com/hatoo/cargo-snippet.git" }
+cargo-snippet = "0.1"
 ```
 
 Add this to src/lib.rs.
