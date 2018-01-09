@@ -14,8 +14,8 @@ path = "src/main.rs"
 required-features = ["binaries"]
 
 [dependencies]
-syn = { git = "https://github.com/dtolnay/syn.git", features = ["full", "parsing", "extra-traits", "printing"], optional = true }
-quote = { git = "https://github.com/dtolnay/quote", optional = true }
+syn = { version = "0.12", features = ["full", "parsing", "extra-traits", "printing"], optional = true }
+quote = { version = "0.4", optional = true }
 rustfmt-nightly = { git = "https://github.com/rust-lang-nursery/rustfmt.git", optional = true }
 glob = { version = "0.2", optional = true }
 clap = { version = "2.29", optional = true }
