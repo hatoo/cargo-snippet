@@ -1,0 +1,6 @@
+language: rust
+rust:
+  - nightly
+script:
+  - cargo build --features="binaries" --verbose --all
+  - cargo test --features="binaries" --verbose --all
