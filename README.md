@@ -1,6 +1,7 @@
 # cargo-snippet
 
 [![crates.io](https://img.shields.io/crates/v/cargo-snippet.svg)](https://crates.io/crates/cargo-snippet)
+[![Build Status](https://travis-ci.org/hatoo/cargo-snippet.svg?branch=master)](https://travis-ci.org/hatoo/cargo-snippet)
 
 A snippet extractor for competitive programmers.
 
