@@ -53,3 +53,14 @@ pub fn write_vscode(snippets: &BTreeMap<String, String>) {
         println!("{}", json);
     }
 }
+
+pub fn write_ultisnips(snippets: &BTreeMap<String, String>) {
+    for (name, content) in snippets.iter() {
+        if let Some(formatted) = format_src(content) {
+            println!("snippet {}", name);
+            print!("{}", formatted);
+            println!("endsnippet");
+            println!();
+        }
+    }
+}

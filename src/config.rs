@@ -26,6 +26,7 @@ pub enum Target<'a> {
 pub enum OutputType {
     Neosnippet,
     VScode,
+    Ultisnips,
 }
 
 impl<'a> Config<'a> {
@@ -91,6 +92,7 @@ impl OutputType {
             .and_then(|m| {
                 m.value_of("output_type").map(|t| match t {
                     "vscode" => OutputType::VScode,
+                    "ultisnips" => OutputType::Ultisnips,
                     _ => OutputType::Neosnippet,
                 })
             })
@@ -104,6 +106,9 @@ impl OutputType {
             }
             &OutputType::VScode => {
                 writer::write_vscode(snippets);
+            }
+            &OutputType::Ultisnips => {
+                writer::write_ultisnips(snippets);
             }
         }
     }
