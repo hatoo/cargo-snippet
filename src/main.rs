@@ -29,10 +29,7 @@ fn main() {
     let matches = App::new("cargo-snippet")
         .version(crate_version!())
         .bin_name("cargo")
-        .settings(&[
-            AppSettings::GlobalVersion,
-            AppSettings::SubcommandRequired,
-        ])
+        .settings(&[AppSettings::GlobalVersion, AppSettings::SubcommandRequired])
         .subcommand(
             SubCommand::with_name("snippet")
                 .author(crate_authors!())
@@ -46,7 +43,7 @@ fn main() {
                         .long("type")
                         .short("t")
                         .default_value("neosnippet")
-                        .possible_values(&["neosnippet", "vscode"]),
+                        .possible_values(&["neosnippet", "vscode", "ultisnips"]),
                 ),
         )
         .get_matches();
