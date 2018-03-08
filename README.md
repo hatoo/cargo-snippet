@@ -116,6 +116,7 @@ My snippets [here](https://github.com/hatoo/competitive-rust-snippets.git).
 
 * Neosnippet
 * VScode
+* Ultisnips
 
 You can specify output format via `-t` option.
 See `cargo snippet -h`.
