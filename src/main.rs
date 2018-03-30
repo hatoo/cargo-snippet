@@ -65,8 +65,10 @@ fn main() {
         buf.clear();
         if let Some(mut file) = report_error(fs::File::open(path)) {
             if report_error(file.read_to_string(&mut buf)).is_some() {
-                for (name, content) in parser::parse_snippet(&buf) {
-                    *snippets.entry(name).or_insert(String::new()) += &content;
+                if let Some(parsed) = report_error(parser::parse_snippet(&buf)) {
+                    for (name, content) in parsed {
+                        *snippets.entry(name).or_insert(String::new()) += &content;
+                    }
                 }
             }
         }

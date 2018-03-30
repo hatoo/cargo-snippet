@@ -1,4 +1,5 @@
 use quote::ToTokens;
+use syn;
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
 macro_rules! get_attrs_impl {
@@ -190,11 +191,8 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     res
 }
 
-pub fn parse_snippet(src: &str) -> Vec<(String, String)> {
-    parse_file(src)
-        .ok()
-        .map(|file| get_snippet_from_file(file))
-        .unwrap_or(Vec::new())
+pub fn parse_snippet(src: &str) -> Result<Vec<(String, String)>, syn::synom::ParseError> {
+    parse_file(src).map(|file| get_snippet_from_file(file))
 }
 
 #[cfg(test)]
@@ -204,7 +202,7 @@ mod test {
 
     fn snippets(src: &str) -> BTreeMap<String, String> {
         let mut res = BTreeMap::new();
-        for (name, content) in parse_snippet(src) {
+        for (name, content) in parse_snippet(src).unwrap() {
             *res.entry(name).or_insert(String::new()) += &content;
         }
         res
