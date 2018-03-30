@@ -19,15 +19,26 @@ extern crate env_logger;
 mod config;
 mod fsutil;
 mod parser;
-mod util;
 mod writer;
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
-use util::report_error;
 
 use clap::{App, AppSettings, Arg, SubCommand};
+
+use std::error::Error;
+
+/// Report error and continue.
+fn report_error<T, E: Error>(result: Result<T, E>) -> Option<T> {
+    match result {
+        Ok(x) => Some(x),
+        Err(e) => {
+            error!("{}", e.description());
+            None
+        }
+    }
+}
 
 fn main() {
     env_logger::init();
