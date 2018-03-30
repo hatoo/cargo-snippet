@@ -12,10 +12,13 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate syn;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
-mod parser;
-mod fsutil;
 mod config;
+mod fsutil;
+mod parser;
 mod writer;
 
 use std::collections::BTreeMap;
@@ -25,6 +28,8 @@ use std::io::Read;
 use clap::{App, AppSettings, Arg, SubCommand};
 
 fn main() {
+    env_logger::init();
+
     // Setup for cargo subcommand
     let matches = App::new("cargo-snippet")
         .version(crate_version!())
