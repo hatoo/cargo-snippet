@@ -19,11 +19,13 @@ extern crate env_logger;
 mod config;
 mod fsutil;
 mod parser;
+mod util;
 mod writer;
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
+use util::report_error;
 
 use clap::{App, AppSettings, Arg, SubCommand};
 
@@ -61,8 +63,8 @@ fn main() {
     let mut buf = String::new();
     for path in config.target.iter_paths() {
         buf.clear();
-        if let Ok(mut file) = fs::File::open(path) {
-            if file.read_to_string(&mut buf).is_ok() {
+        if let Some(mut file) = report_error(fs::File::open(path)) {
+            if report_error(file.read_to_string(&mut buf)).is_some() {
                 for (name, content) in parser::parse_snippet(&buf) {
                     *snippets.entry(name).or_insert(String::new()) += &content;
                 }

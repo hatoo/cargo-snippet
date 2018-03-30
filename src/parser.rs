@@ -1,5 +1,5 @@
-use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 use quote::ToTokens;
+use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
 macro_rules! get_attrs_impl {
     ($arg: expr, $($v: path), *) => {
@@ -145,9 +145,12 @@ fn get_snippet_from_item_recursive(item: Item) -> Vec<(Vec<String>, String)> {
     }
 
     if let Item::Mod(mod_item) = item {
-        res.extend(mod_item.content.into_iter().flat_map(|(_, items)| {
-            items.into_iter().flat_map(get_snippet_from_item_recursive)
-        }));
+        res.extend(
+            mod_item
+                .content
+                .into_iter()
+                .flat_map(|(_, items)| items.into_iter().flat_map(get_snippet_from_item_recursive)),
+        );
     }
 
     res
@@ -216,7 +219,7 @@ mod test {
 
         let snip = snippets(&src);
 
-        assert_eq!(snip.get("test"), Some(&quote!(fn test(){}).to_string()));
+        assert_eq!(snip.get("test"), Some(&quote!(fn test() {}).to_string()));
     }
 
     #[test]
@@ -230,8 +233,8 @@ mod test {
 
             let snip = snippets(&src);
 
-            assert_eq!(snip.get("test1"), Some(&quote!(fn test(){}).to_string()));
-            assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
+            assert_eq!(snip.get("test1"), Some(&quote!(fn test() {}).to_string()));
+            assert_eq!(snip.get("test2"), Some(&quote!(fn test() {}).to_string()));
         }
 
         {
@@ -244,8 +247,8 @@ mod test {
 
             let snip = snippets(&src);
 
-            assert_eq!(snip.get("test1"), Some(&quote!(fn test(){}).to_string()));
-            assert_eq!(snip.get("test2"), Some(&quote!(fn test(){}).to_string()));
+            assert_eq!(snip.get("test1"), Some(&quote!(fn test() {}).to_string()));
+            assert_eq!(snip.get("test2"), Some(&quote!(fn test() {}).to_string()));
         }
     }
 
@@ -264,12 +267,14 @@ mod test {
 
         let snip = snippets(&src);
 
-        assert_eq!(snip.get("bar"), Some(&quote!(fn bar(){}).to_string()));
+        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
         assert_eq!(
             snip.get("foo"),
             // #[snippet = "hoge"] should be removed.
-            Some(&quote!(mod foo{fn hoge(){}}).to_string())
+            Some(&quote!(mod foo {
+                fn hoge() {}
+            }).to_string())
         );
-        assert_eq!(snip.get("hoge"), Some(&quote!(fn hoge(){}).to_string()));
+        assert_eq!(snip.get("hoge"), Some(&quote!(fn hoge() {}).to_string()));
     }
 }
