@@ -19,9 +19,9 @@ extern crate env_logger;
 mod config;
 mod fsutil;
 mod parser;
+mod snippet;
 mod writer;
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
 
@@ -69,21 +69,21 @@ fn main() {
     let config = config::Config::from_matches(&matches);
 
     // Alphabetical order
-    let mut snippets = BTreeMap::new();
+    let mut snippets = Vec::new();
 
     let mut buf = String::new();
     for path in config.target.iter_paths() {
         buf.clear();
         if let Some(mut file) = report_error(fs::File::open(path)) {
             if report_error(file.read_to_string(&mut buf)).is_some() {
-                if let Some(parsed) = report_error(parser::parse_snippet(&buf)) {
-                    for (name, content) in parsed {
-                        *snippets.entry(name).or_insert(String::new()) += &content;
-                    }
+                if let Some(mut parsed) = report_error(parser::parse_snippet(&buf)) {
+                    snippets.append(&mut parsed);
                 }
             }
         }
     }
 
-    config.output_type.write(&snippets);
+    config
+        .output_type
+        .write(&snippet::process_snippets(&snippets));
 }

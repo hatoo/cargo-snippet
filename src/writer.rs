@@ -8,7 +8,7 @@ struct VScode {
     body: Vec<String>,
 }
 
-fn format_src(src: &str) -> Option<String> {
+pub fn format_src(src: &str) -> Option<String> {
     let mut rustfmt_config = rustfmt_nightly::config::Config::default();
     rustfmt_config
         .set()

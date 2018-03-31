@@ -2,6 +2,9 @@ use quote::ToTokens;
 use syn;
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
+use snippet::{Snippet, SnippetAttributes};
+use std::collections::HashSet;
+
 macro_rules! get_attrs_impl {
     ($arg: expr, $($v: path), *) => {
         {
@@ -121,7 +124,7 @@ fn get_default_snippet_name(item: &Item) -> Option<String> {
     )
 }
 
-fn get_snippet_name(attr: &Attribute, default: Option<String>) -> Option<String> {
+fn get_snippet_name(attr: &Attribute) -> Option<String> {
     attr.interpret_meta().and_then(|metaitem| {
         if metaitem.name().to_string() != "snippet" {
             return None;
@@ -145,28 +148,86 @@ fn get_snippet_name(attr: &Attribute, default: Option<String>) -> Option<String>
                 .next(),
             // #[snippet=".."]
             Meta::NameValue(nv) => Some(unquote(&nv.lit.into_tokens().to_string())),
-            _ => default,
+            _ => None,
         }
     })
 }
 
-// Get snippet names and snippet code (not formatted)
-fn get_snippet_from_item(mut item: Item) -> Option<(Vec<String>, String)> {
-    let default_name = get_default_snippet_name(&item);
-    let snip_names = get_attrs(&item).map(|attrs| {
-        attrs
-            .iter()
-            .filter_map(|attr| get_snippet_name(attr, default_name.clone()))
-            .collect()
-    });
+fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
+    attr.interpret_meta().and_then(|metaitem| {
+        if metaitem.name().to_string() != "snippet" {
+            return None;
+        }
 
-    snip_names.map(|names| {
-        remove_snippet_attr(&mut item);
-        (names, item.into_tokens().to_string())
+        match metaitem {
+            // #[snippet(use="..")]
+            Meta::List(list) => list.nested
+                .iter()
+                .filter_map(|item| {
+                    if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
+                        if nv.ident.to_string() == "use" {
+                            let uses = unquote(&nv.lit.clone().into_tokens().to_string());
+                            Some(
+                                uses.split(',')
+                                    .map(|s| s.trim())
+                                    .filter(|s| !s.is_empty())
+                                    .map(|s| s.to_string())
+                                    .collect(),
+                            )
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .next(),
+            _ => None,
+        }
     })
 }
 
-fn get_snippet_from_item_recursive(item: Item) -> Vec<(Vec<String>, String)> {
+fn parse_attrs(
+    attrs: &[Attribute],
+    default_snippet_name: Option<String>,
+) -> Option<SnippetAttributes> {
+    let mut names = attrs
+        .iter()
+        .filter_map(get_snippet_name)
+        .collect::<HashSet<_>>();
+
+    if names.is_empty() {
+        if let Some(default) = default_snippet_name {
+            names.insert(default);
+        } else {
+            return None;
+        }
+    }
+
+    let uses = attrs
+        .iter()
+        .filter_map(get_snippet_uses)
+        .flat_map(|v| v.into_iter())
+        .collect::<HashSet<_>>();
+
+    Some(SnippetAttributes { names, uses })
+}
+
+// Get snippet names and snippet code (not formatted)
+fn get_snippet_from_item(mut item: Item) -> Option<Snippet> {
+    let default_name = get_default_snippet_name(&item);
+    let snip_attrs = get_attrs(&item).and_then(|attrs| parse_attrs(attrs.as_slice(), default_name));
+
+    snip_attrs.map(|attrs| {
+        remove_snippet_attr(&mut item);
+        Snippet {
+            attrs,
+            content: item.into_tokens().to_string(),
+        }
+    })
+}
+
+fn get_snippet_from_item_recursive(item: Item) -> Vec<Snippet> {
     let mut res = Vec::new();
 
     if let Some(pair) = get_snippet_from_item(item.clone()) {
@@ -185,16 +246,11 @@ fn get_snippet_from_item_recursive(item: Item) -> Vec<(Vec<String>, String)> {
     res
 }
 
-fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
+fn get_snippet_from_file(file: File) -> Vec<Snippet> {
     let mut res = Vec::new();
 
     // whole code is snippet
-    let snip_names = file.attrs
-        .iter()
-        .filter_map(|attr| get_snippet_name(attr, None))
-        .collect::<Vec<_>>();
-
-    for name in snip_names {
+    if let Some(attrs) = parse_attrs(&file.attrs, None) {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
             attr.interpret_meta()
@@ -204,36 +260,35 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
         file.items.iter_mut().for_each(|item| {
             remove_snippet_attr(item);
         });
-        res.push((name, file.into_tokens().to_string()));
+        res.push(Snippet {
+            attrs,
+            content: file.into_tokens().to_string(),
+        })
     }
 
     res.extend(
         file.items
             .into_iter()
-            .flat_map(|item| get_snippet_from_item_recursive(item))
-            .flat_map(|(names, content)| {
-                names.into_iter().map(move |name| (name, content.clone()))
-            }),
+            .flat_map(|item| get_snippet_from_item_recursive(item)),
     );
 
     res
 }
 
-pub fn parse_snippet(src: &str) -> Result<Vec<(String, String)>, syn::synom::ParseError> {
+pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::synom::ParseError> {
     parse_file(src).map(|file| get_snippet_from_file(file))
 }
 
 #[cfg(test)]
 mod test {
     use super::parse_snippet;
+    use snippet::process_snippets;
     use std::collections::BTreeMap;
+    use writer::format_src;
 
     fn snippets(src: &str) -> BTreeMap<String, String> {
-        let mut res = BTreeMap::new();
-        for (name, content) in parse_snippet(src).unwrap() {
-            *res.entry(name).or_insert(String::new()) += &content;
-        }
-        res
+        let snips = parse_snippet(src).unwrap();
+        process_snippets(&snips)
     }
 
     #[test]
@@ -317,5 +372,42 @@ mod test {
         let snip = snippets(&src);
         assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
         assert_eq!(snip.get("Baz"), Some(&quote!(struct Baz();).to_string()));
+    }
+
+    #[test]
+    fn test_snippet_dependency() {
+        let src = r#"
+            #[snippet = "bar"]
+            fn bar() {}
+
+            #[snippet(name = "baz", use = "bar")]
+            fn baz() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+        assert_eq!(
+            format_src(snip["baz"].as_str()).unwrap(),
+            format_src("fn bar() {} fn baz() {}").unwrap()
+        );
+
+        let src = r#"
+            #[snippet]
+            fn foo() {}
+
+            #[snippet]
+            fn bar() {}
+
+            #[snippet(name = "baz", use = "foo, bar")]
+            fn baz() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+        // Original order of "uses" are not saved.
+        assert_eq!(
+            format_src(snip["baz"].as_str()).unwrap(),
+            format_src("fn foo() {} fn bar() {} fn baz() {}").unwrap()
+        );
     }
 }
