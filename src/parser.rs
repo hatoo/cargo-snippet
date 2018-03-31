@@ -300,6 +300,16 @@ mod test {
     }
 
     #[test]
+    fn test_no_snippet() {
+        let src = r#"
+            fn test() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(snip.get("test"), None);
+    }
+
+    #[test]
     fn test_parse_simple_case() {
         let src = r#"
             #[snippet="test"]
