@@ -40,13 +40,13 @@ Add this to src/lib.rs.
 Write some snippet codes and tests.
 
 ```rust
+
 #![feature(plugin)]
 #![plugin(cargo_snippet)]
 
 // Annotate snippet name
 #[snippet = "mymath"]
 #[snippet = "gcd"]
-#[allow(dead_code)]
 fn gcd(a: u64, b: u64) -> u64 {
     if b == 0 {
         a
@@ -57,9 +57,17 @@ fn gcd(a: u64, b: u64) -> u64 {
 
 // Also works
 #[snippet(name = "mymath")]
-#[allow(dead_code)]
+// Equivalent to #[snippet = "lcm"]
+#[snippet]
 fn lcm(a: u64, b: u64) -> u64 {
     a / gcd(a, b) * b
+}
+
+#[snippet]
+// Include snippet
+#[snippet(include = "gcd")]
+fn gcd_list(list: &[u64]) -> u64 {
+    list.iter().fold(list[0], |a, b| gcd(a, b));
 }
 
 #[test]
@@ -71,6 +79,7 @@ fn test_gcd() {
 fn test_lcm() {
     assert_eq!(lcm(3, 19), 57);
 }
+
 ```
 
 You can test.
@@ -84,7 +93,6 @@ Extract snippet !
 ```
 $ cargo snippet
 snippet gcd
-    #[allow(dead_code)]
     fn gcd(a: u64, b: u64) -> u64 {
         if b == 0 {
             a
@@ -93,8 +101,7 @@ snippet gcd
         }
     }
 
-snippet mymath
-    #[allow(dead_code)]
+snippet gcd_list
     fn gcd(a: u64, b: u64) -> u64 {
         if b == 0 {
             a
@@ -102,10 +109,27 @@ snippet mymath
             gcd(b, a % b)
         }
     }
-    #[allow(dead_code)]
+    fn gcd_list(list: &[u64]) -> u64 {
+        list.iter().fold(list[0], |a, b| gcd(a, b));
+    }
+
+snippet lcm
     fn lcm(a: u64, b: u64) -> u64 {
         a / gcd(a, b) * b
     }
+
+snippet mymath
+    fn gcd(a: u64, b: u64) -> u64 {
+        if b == 0 {
+            a
+        } else {
+            gcd(b, a % b)
+        }
+    }
+    fn lcm(a: u64, b: u64) -> u64 {
+        a / gcd(a, b) * b
+    }
+
 ```
 
 ## Example
