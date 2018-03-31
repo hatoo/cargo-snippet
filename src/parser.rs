@@ -94,7 +94,34 @@ fn unquote(s: &str) -> String {
     }
 }
 
-fn get_snippet_name(attr: &Attribute) -> Option<String> {
+macro_rules! get_default_snippet_name_impl {
+    ($arg:expr, $($v: path), *) => {
+        match $arg {
+            $(
+                &$v(ref x) => {
+                    Some(x.ident.to_string())
+                },
+            )*
+            _ => None
+        }
+    };
+}
+
+fn get_default_snippet_name(item: &Item) -> Option<String> {
+    get_default_snippet_name_impl!(
+        item,
+        Item::Static,
+        Item::Const,
+        Item::Fn,
+        Item::Mod,
+        Item::Struct,
+        Item::Enum,
+        Item::Union,
+        Item::Trait
+    )
+}
+
+fn get_snippet_name(attr: &Attribute, default: Option<String>) -> Option<String> {
     attr.interpret_meta().and_then(|metaitem| {
         if metaitem.name().to_string() != "snippet" {
             return None;
@@ -118,17 +145,18 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 .next(),
             // #[snippet=".."]
             Meta::NameValue(nv) => Some(unquote(&nv.lit.into_tokens().to_string())),
-            _ => None,
+            _ => default,
         }
     })
 }
 
 // Get snippet names and snippet code (not formatted)
 fn get_snippet_from_item(mut item: Item) -> Option<(Vec<String>, String)> {
+    let default_name = get_default_snippet_name(&item);
     let snip_names = get_attrs(&item).map(|attrs| {
         attrs
             .iter()
-            .filter_map(|attr| get_snippet_name(attr))
+            .filter_map(|attr| get_snippet_name(attr, default_name.clone()))
             .collect()
     });
 
@@ -163,7 +191,7 @@ fn get_snippet_from_file(file: File) -> Vec<(String, String)> {
     // whole code is snippet
     let snip_names = file.attrs
         .iter()
-        .filter_map(|attr| get_snippet_name(attr))
+        .filter_map(|attr| get_snippet_name(attr, None))
         .collect::<Vec<_>>();
 
     for name in snip_names {
@@ -274,5 +302,20 @@ mod test {
             }).to_string())
         );
         assert_eq!(snip.get("hoge"), Some(&quote!(fn hoge() {}).to_string()));
+    }
+
+    #[test]
+    fn test_default_snippet_name() {
+        let src = r#"
+            #[snippet]
+            fn bar() {}
+
+            #[snippet]
+            struct Baz();
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+        assert_eq!(snip.get("Baz"), Some(&quote!(struct Baz();).to_string()));
     }
 }
