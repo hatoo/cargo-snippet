@@ -191,6 +191,14 @@ fn parse_attrs(
     attrs: &[Attribute],
     default_snippet_name: Option<String>,
 ) -> Option<SnippetAttributes> {
+    if !attrs
+        .iter()
+        .filter_map(|a| a.interpret_meta())
+        .any(|m| m.name().to_string() == "snippet")
+    {
+        return None;
+    }
+
     let mut names = attrs
         .iter()
         .filter_map(get_snippet_name)
