@@ -430,4 +430,25 @@ mod test {
             format_src("fn foo() {} fn bar() {} fn baz() {}").unwrap()
         );
     }
+
+    #[test]
+    fn test_recursive_dependency() {
+        let src = r#"
+            #[snippet(include = "baz")]
+            fn bar() {}
+
+            #[snippet(include = "bar")]
+            fn baz() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("fn baz() {} fn bar() {}").unwrap()
+        );
+        assert_eq!(
+            format_src(snip["baz"].as_str()).unwrap(),
+            format_src("fn bar() {} fn baz() {}").unwrap()
+        );
+    }
 }
