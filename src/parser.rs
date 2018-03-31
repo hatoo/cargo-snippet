@@ -160,12 +160,14 @@ fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
         }
 
         match metaitem {
-            // #[snippet(use="..")]
+            // #[snippet(include="..")]
             Meta::List(list) => list.nested
                 .iter()
                 .filter_map(|item| {
                     if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
-                        if nv.ident.to_string() == "use" {
+                        // It can't use "use" keyword here xD.
+                        // It is reserved.
+                        if nv.ident.to_string() == "include" {
                             let uses = unquote(&nv.lit.clone().into_tokens().to_string());
                             Some(
                                 uses.split(',')
@@ -398,7 +400,7 @@ mod test {
             #[snippet = "bar"]
             fn bar() {}
 
-            #[snippet(name = "baz", use = "bar")]
+            #[snippet(name = "baz", include = "bar")]
             fn baz() {}
         "#;
 
@@ -416,7 +418,7 @@ mod test {
             #[snippet]
             fn bar() {}
 
-            #[snippet(name = "baz", use = "foo, bar")]
+            #[snippet(name = "baz", include = "foo, bar")]
             fn baz() {}
         "#;
 
