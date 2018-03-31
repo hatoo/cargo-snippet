@@ -206,6 +206,21 @@ fn parse_attrs(
         .filter_map(get_snippet_name)
         .collect::<HashSet<_>>();
 
+    if attrs.iter().filter_map(|a| a.interpret_meta()).any(|m| {
+        if m.name().to_string() != "snippet" {
+            return false;
+        }
+
+        match m {
+            syn::Meta::Word(_) => true,
+            _ => false,
+        }
+    }) {
+        if let Some(ref default) = default_snippet_name {
+            names.insert(default.clone());
+        }
+    }
+
     if names.is_empty() {
         if let Some(default) = default_snippet_name {
             names.insert(default);
@@ -350,6 +365,18 @@ mod test {
 
             assert_eq!(snip.get("test1"), Some(&quote!(fn test() {}).to_string()));
             assert_eq!(snip.get("test2"), Some(&quote!(fn test() {}).to_string()));
+        }
+
+        {
+            let src = r#"
+                #[snippet]
+                #[snippet = "bar2"]
+                fn bar() {}
+            "#;
+
+            let snip = snippets(&src);
+            assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+            assert_eq!(snip.get("bar2"), Some(&quote!(fn bar() {}).to_string()));
         }
     }
 
