@@ -19,9 +19,9 @@ path = "src/main.rs"
 required-features = ["binaries"]
 
 [dependencies]
-syn = { version = "0.12", features = ["full", "parsing", "extra-traits", "printing"], optional = true }
-quote = { version = "0.4", optional = true }
-rustfmt-nightly = { version = "0.4", optional = true }
+syn = { version = "0.14", features = ["full", "parsing", "extra-traits", "printing"], optional = true }
+quote = { version = "0.6", optional = true }
+rustfmt-nightly = { version = "0.7", optional = true }
 glob = { version = "0.2", optional = true }
 clap = { version = "2.29", optional = true }
 serde = { version = "1.0", optional = true}
