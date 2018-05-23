@@ -10,9 +10,9 @@ struct VScode {
 
 pub fn format_src(src: &str) -> Option<String> {
     let mut rustfmt_config = rustfmt_nightly::Config::default();
-    //rustfmt_config
-    //.set()
-    //.emit_mode(rustfmt_nightly::EmitMode::Files);
+    rustfmt_config
+        .set()
+        .write_mode(rustfmt_nightly::WriteMode::Display);
 
     let mut out = Vec::with_capacity(src.len() * 2);
     let input = rustfmt_nightly::Input::Text(src.into());
@@ -63,4 +63,9 @@ pub fn write_ultisnips(snippets: &BTreeMap<String, String>) {
             println!();
         }
     }
+}
+
+#[test]
+fn test_format_src() {
+    assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\n".into()))
 }
