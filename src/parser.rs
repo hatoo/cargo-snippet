@@ -132,12 +132,13 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
 
         match metaitem {
             // #[snippet(name="..")]
-            Meta::List(list) => list.nested
+            Meta::List(list) => list
+                .nested
                 .iter()
                 .filter_map(|item| {
                     if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
                         if nv.ident.to_string() == "name" {
-                            Some(unquote(&nv.lit.clone().into_tokens().to_string()))
+                            Some(unquote(&nv.lit.clone().into_token_stream().to_string()))
                         } else {
                             None
                         }
@@ -147,7 +148,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 })
                 .next(),
             // #[snippet=".."]
-            Meta::NameValue(nv) => Some(unquote(&nv.lit.into_tokens().to_string())),
+            Meta::NameValue(nv) => Some(unquote(&nv.lit.into_token_stream().to_string())),
             _ => None,
         }
     })
@@ -161,14 +162,15 @@ fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
 
         match metaitem {
             // #[snippet(include="..")]
-            Meta::List(list) => list.nested
+            Meta::List(list) => list
+                .nested
                 .iter()
                 .filter_map(|item| {
                     if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
                         // It can't use "use" keyword here xD.
                         // It is reserved.
                         if nv.ident.to_string() == "include" {
-                            let uses = unquote(&nv.lit.clone().into_tokens().to_string());
+                            let uses = unquote(&nv.lit.clone().into_token_stream().to_string());
                             Some(
                                 uses.split(',')
                                     .map(|s| s.trim())
@@ -247,7 +249,7 @@ fn get_snippet_from_item(mut item: Item) -> Option<Snippet> {
         remove_snippet_attr(&mut item);
         Snippet {
             attrs,
-            content: item.into_tokens().to_string(),
+            content: item.into_token_stream().to_string(),
         }
     })
 }
@@ -287,7 +289,7 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
         });
         res.push(Snippet {
             attrs,
-            content: file.into_tokens().to_string(),
+            content: file.into_token_stream().to_string(),
         })
     }
 

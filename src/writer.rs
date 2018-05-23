@@ -9,10 +9,10 @@ struct VScode {
 }
 
 pub fn format_src(src: &str) -> Option<String> {
-    let mut rustfmt_config = rustfmt_nightly::config::Config::default();
-    rustfmt_config
-        .set()
-        .write_mode(rustfmt_nightly::config::WriteMode::Plain);
+    let mut rustfmt_config = rustfmt_nightly::Config::default();
+    //rustfmt_config
+    //.set()
+    //.emit_mode(rustfmt_nightly::EmitMode::Files);
 
     let mut out = Vec::with_capacity(src.len() * 2);
     let input = rustfmt_nightly::Input::Text(src.into());
