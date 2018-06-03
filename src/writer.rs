@@ -12,7 +12,7 @@ pub fn format_src(src: &str) -> Option<String> {
     let mut rustfmt_config = rustfmt_nightly::Config::default();
     rustfmt_config
         .set()
-        .write_mode(rustfmt_nightly::WriteMode::Display);
+        .emit_mode(rustfmt_nightly::EmitMode::Stdout);
     rustfmt_config
         .set()
         .verbose(rustfmt_nightly::Verbosity::Quiet);
