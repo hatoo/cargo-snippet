@@ -19,11 +19,11 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
 
     for snip in snips {
         for name in &snip.attrs.names {
-            *pre.entry(name.clone()).or_insert(String::new()) += &snip.content;
+            *pre.entry(name.clone()).or_insert_with(String::new) += &snip.content;
 
             for dep in &snip.attrs.uses {
                 deps.entry(name.clone())
-                    .or_insert(BTreeSet::new())
+                    .or_insert_with(BTreeSet::new)
                     .insert(dep.clone());
             }
         }
@@ -40,7 +40,7 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
             if !used.contains(&dep) {
                 used.insert(dep.clone());
                 let c = &pre[&dep];
-                *res.entry(name.clone()).or_insert(String::new()) += c.as_str();
+                *res.entry(name.clone()).or_insert_with(String::new) += c.as_str();
 
                 if let Some(ds) = deps.get(&dep) {
                     for d in ds {
@@ -55,7 +55,7 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
 
     for (name, content) in pre {
         // Dependency first
-        *res.entry(name).or_insert(String::new()) += content.as_str();
+        *res.entry(name).or_insert_with(String::new) += content.as_str();
     }
 
     res

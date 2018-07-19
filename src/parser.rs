@@ -10,7 +10,7 @@ macro_rules! get_attrs_impl {
         {
             match $arg {
                 $(
-                    &$v(ref x) => Some(&x.attrs),
+                    $v(ref x) => Some(&x.attrs),
                 )*
                 _ => None
             }
@@ -45,9 +45,9 @@ macro_rules! remove_snippet_attr_impl {
         {
             match $arg {
                 $(
-                    &mut $v(ref mut x) => {
+                    $v(ref mut x) => {
                         x.attrs.retain(|attr| {
-                            attr.interpret_meta().map(|m| m.name().to_string() != "snippet").unwrap_or(true)
+                            attr.interpret_meta().map(|m| m.name() != "snippet").unwrap_or(true)
                         });
                     },
                 )*
@@ -77,13 +77,10 @@ fn remove_snippet_attr(item: &mut Item) {
         Item::Macro2
     );
 
-    match item {
-        &mut Item::Mod(ref mut item_mod) => {
-            if let Some(&mut (_, ref mut items)) = item_mod.content.as_mut() {
-                items.iter_mut().for_each(|item| remove_snippet_attr(item));
-            }
+    if let Item::Mod(ref mut item_mod) = item {
+        if let Some(&mut (_, ref mut items)) = item_mod.content.as_mut() {
+            items.iter_mut().for_each(|item| remove_snippet_attr(item));
         }
-        _ => (),
     }
 }
 
@@ -101,7 +98,7 @@ macro_rules! get_default_snippet_name_impl {
     ($arg:expr, $($v: path), *) => {
         match $arg {
             $(
-                &$v(ref x) => {
+                $v(ref x) => {
                     Some(x.ident.to_string())
                 },
             )*
@@ -126,7 +123,7 @@ fn get_default_snippet_name(item: &Item) -> Option<String> {
 
 fn get_snippet_name(attr: &Attribute) -> Option<String> {
     attr.interpret_meta().and_then(|metaitem| {
-        if metaitem.name().to_string() != "snippet" {
+        if metaitem.name() != "snippet" {
             return None;
         }
 
@@ -136,8 +133,8 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 .nested
                 .iter()
                 .filter_map(|item| {
-                    if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
-                        if nv.ident.to_string() == "name" {
+                    if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
+                        if nv.ident == "name" {
                             Some(unquote(&nv.lit.clone().into_token_stream().to_string()))
                         } else {
                             None
@@ -156,7 +153,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
 
 fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
     attr.interpret_meta().and_then(|metaitem| {
-        if metaitem.name().to_string() != "snippet" {
+        if metaitem.name() != "snippet" {
             return None;
         }
 
@@ -166,10 +163,10 @@ fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
                 .nested
                 .iter()
                 .filter_map(|item| {
-                    if let &NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
+                    if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
                         // It can't use "use" keyword here xD.
                         // It is reserved.
-                        if nv.ident.to_string() == "include" {
+                        if nv.ident == "include" {
                             let uses = unquote(&nv.lit.clone().into_token_stream().to_string());
                             Some(
                                 uses.split(',')
@@ -198,7 +195,7 @@ fn parse_attrs(
     if !attrs
         .iter()
         .filter_map(|a| a.interpret_meta())
-        .any(|m| m.name().to_string() == "snippet")
+        .any(|m| m.name() == "snippet")
     {
         return None;
     }
@@ -208,8 +205,8 @@ fn parse_attrs(
         .filter_map(get_snippet_name)
         .collect::<HashSet<_>>();
 
-    if attrs.iter().filter_map(|a| a.interpret_meta()).any(|m| {
-        if m.name().to_string() != "snippet" {
+    let attr_snippet_without_value = attrs.iter().filter_map(|a| a.interpret_meta()).any(|m| {
+        if m.name() != "snippet" {
             return false;
         }
 
@@ -217,7 +214,9 @@ fn parse_attrs(
             syn::Meta::Word(_) => true,
             _ => false,
         }
-    }) {
+    });
+
+    if attr_snippet_without_value {
         if let Some(ref default) = default_snippet_name {
             names.insert(default.clone());
         }
@@ -281,7 +280,7 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
             attr.interpret_meta()
-                .map(|m| m.name().to_string() != "snippet")
+                .map(|m| m.name() != "snippet")
                 .unwrap_or(true)
         });
         file.items.iter_mut().for_each(|item| {
@@ -296,14 +295,14 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
     res.extend(
         file.items
             .into_iter()
-            .flat_map(|item| get_snippet_from_item_recursive(item)),
+            .flat_map(get_snippet_from_item_recursive),
     );
 
     res
 }
 
 pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::synom::ParseError> {
-    parse_file(src).map(|file| get_snippet_from_file(file))
+    parse_file(src).map(get_snippet_from_file)
 }
 
 #[cfg(test)]
@@ -401,9 +400,11 @@ mod test {
         assert_eq!(
             snip.get("foo"),
             // #[snippet = "hoge"] should be removed.
-            Some(&quote!(mod foo {
-                fn hoge() {}
-            }).to_string())
+            Some(
+                &quote!(mod foo {
+                    fn hoge() {}
+                }).to_string()
+            )
         );
         assert_eq!(snip.get("hoge"), Some(&quote!(fn hoge() {}).to_string()));
     }

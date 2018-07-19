@@ -1,12 +1,12 @@
 use clap::ArgMatches;
-use std::path::{Path, PathBuf};
-use std::iter;
-use std::fs;
 use std::collections::BTreeMap;
+use std::fs;
+use std::iter;
+use std::path::{Path, PathBuf};
 
+use fsutil;
 use glob::glob;
 use writer;
-use fsutil;
 
 #[derive(Debug)]
 pub struct Config<'a> {
@@ -51,7 +51,7 @@ impl<'a> Target<'a> {
 
     pub fn iter_paths(&self) -> Box<Iterator<Item = PathBuf> + 'a> {
         match self {
-            &Target::ProjectSrc => fsutil::project_root_path()
+            Target::ProjectSrc => fsutil::project_root_path()
                 .and_then(|mut path| {
                     path.push("src");
                     path.push("**");
@@ -60,8 +60,8 @@ impl<'a> Target<'a> {
                         Box::new(paths.filter_map(|e| e.ok())) as Box<Iterator<Item = PathBuf>>
                     })
                 })
-                .unwrap_or(Box::new(iter::empty())),
-            &Target::Paths(ref v) => Box::new(
+                .unwrap_or_else(|| Box::new(iter::empty())),
+            Target::Paths(ref v) => Box::new(
                 v.clone()
                     .into_iter()
                     .filter_map(|s| {
@@ -101,13 +101,13 @@ impl OutputType {
 
     pub fn write(&self, snippets: &BTreeMap<String, String>) {
         match self {
-            &OutputType::Neosnippet => {
+            OutputType::Neosnippet => {
                 writer::write_neosnippet(snippets);
             }
-            &OutputType::VScode => {
+            OutputType::VScode => {
                 writer::write_vscode(snippets);
             }
-            &OutputType::Ultisnips => {
+            OutputType::Ultisnips => {
                 writer::write_ultisnips(snippets);
             }
         }
