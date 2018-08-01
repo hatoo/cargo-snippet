@@ -75,7 +75,11 @@ pub fn write_ultisnips(snippets: &BTreeMap<String, String>) {
 
 #[test]
 fn test_format_src() {
+    #[cfg(windows)]
     assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\r\n".into()));
+    #[cfg(not(windows))]
+    assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\n".into()));
+
     assert_eq!(
         format_src("/// doc comment\n pub fn foo(){}"),
         Some("/// doc comment\npub fn foo() {}\n".into())
