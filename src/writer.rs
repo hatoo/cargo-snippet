@@ -19,9 +19,15 @@ pub fn format_src(src: &str) -> Option<String> {
 
     let mut out = Vec::with_capacity(src.len() * 2);
     let input = rustfmt_nightly::Input::Text(src.into());
-    rustfmt_nightly::format_input(input, &rustfmt_config, Some(&mut out))
-        .ok()
-        .and_then(|_| String::from_utf8(out).ok())
+
+    if rustfmt_nightly::Session::new(rustfmt_config, Some(&mut out))
+        .format(input)
+        .is_ok()
+    {
+        String::from_utf8(out).ok()
+    } else {
+        None
+    }
 }
 
 pub fn write_neosnippet(snippets: &BTreeMap<String, String>) {
@@ -49,8 +55,7 @@ pub fn write_vscode(snippets: &BTreeMap<String, String>) {
                     },
                 )
             })
-        })
-        .collect();
+        }).collect();
 
     if let Ok(json) = serde_json::to_string_pretty(&vscode) {
         println!("{}", json);
@@ -70,7 +75,7 @@ pub fn write_ultisnips(snippets: &BTreeMap<String, String>) {
 
 #[test]
 fn test_format_src() {
-    assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\n".into()));
+    assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\r\n".into()));
     assert_eq!(
         format_src("/// doc comment\n pub fn foo(){}"),
         Some("/// doc comment\npub fn foo() {}\n".into())
