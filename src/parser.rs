@@ -40,14 +40,14 @@ fn get_attrs(item: &Item) -> Option<&Vec<Attribute>> {
     )
 }
 
-macro_rules! remove_snippet_attr_impl {
-    ($arg: expr, $($v: path), *) => {
+macro_rules! remove_attr_by_name_impl {
+    ($arg: expr, $name: expr, $($v: path), *) => {
         {
             match $arg {
                 $(
                     $v(ref mut x) => {
                         x.attrs.retain(|attr| {
-                            attr.interpret_meta().map(|m| m.name() != "snippet").unwrap_or(true)
+                            attr.interpret_meta().map(|m| m.name() != $name).unwrap_or(true)
                         });
                     },
                 )*
@@ -57,9 +57,10 @@ macro_rules! remove_snippet_attr_impl {
     }
 }
 
-fn remove_snippet_attr(item: &mut Item) {
-    remove_snippet_attr_impl!(
+fn remove_attr_by_name(item: &mut Item, name: &str) {
+    remove_attr_by_name_impl!(
         item,
+        name,
         Item::ExternCrate,
         Item::Use,
         Item::Static,
@@ -79,7 +80,7 @@ fn remove_snippet_attr(item: &mut Item) {
 
     if let Item::Mod(ref mut item_mod) = item {
         if let Some(&mut (_, ref mut items)) = item_mod.content.as_mut() {
-            items.iter_mut().for_each(|item| remove_snippet_attr(item));
+            items.iter_mut().for_each(|item| remove_attr_by_name(item, name));
         }
     }
 }
@@ -245,7 +246,8 @@ fn get_snippet_from_item(mut item: Item) -> Option<Snippet> {
     let snip_attrs = get_attrs(&item).and_then(|attrs| parse_attrs(attrs.as_slice(), default_name));
 
     snip_attrs.map(|attrs| {
-        remove_snippet_attr(&mut item);
+        remove_attr_by_name(&mut item, "snippet");
+        remove_attr_by_name(&mut item, "doc");
         Snippet {
             attrs,
             content: item.into_token_stream().to_string(),
@@ -280,11 +282,12 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
             attr.interpret_meta()
-                .map(|m| m.name() != "snippet")
+                .map(|m| m.name() != "snippet" && m.name() != "doc")
                 .unwrap_or(true)
         });
         file.items.iter_mut().for_each(|item| {
-            remove_snippet_attr(item);
+            remove_attr_by_name(item, "snippet");
+            remove_attr_by_name(item, "doc");
         });
         res.push(Snippet {
             attrs,
@@ -337,6 +340,42 @@ mod test {
         let snip = snippets(&src);
 
         assert_eq!(snip.get("test"), Some(&quote!(fn test() {}).to_string()));
+    }
+
+    #[test]
+    fn test_doc() {
+        let src = r#"
+            /// test
+            #[snippet="test"]
+            fn test() {}
+        "#;
+
+        let snip = snippets(&src);
+
+        assert_eq!(snip.get("test"), Some(&quote!(fn test() {}).to_string()));
+    }
+
+    #[test]
+    fn test_file_level_snippet() {
+        let src = r#"
+            //! test
+            #![snippet="test"]
+
+            /// foo
+            #[snippet="foo"]
+            fn foo() {}
+
+            /// bar
+            #[snippet="bar"]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+
+        assert_eq!(
+            format_src(snip["test"].as_str()).unwrap(),
+            format_src("fn foo() {} fn bar() {}").unwrap()
+        );
     }
 
     #[test]
