@@ -301,7 +301,7 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
     res
 }
 
-pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::synom::ParseError> {
+pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::parse::Error> {
     parse_file(src).map(get_snippet_from_file)
 }
 
@@ -336,7 +336,15 @@ mod test {
 
         let snip = snippets(&src);
 
-        assert_eq!(snip.get("test"), Some(&quote!(fn test() {}).to_string()));
+        assert_eq!(
+            snip.get("test"),
+            Some(
+                &quote!(
+                    fn test() {}
+                )
+                .to_string()
+            )
+        );
     }
 
     #[test]
@@ -350,8 +358,24 @@ mod test {
 
             let snip = snippets(&src);
 
-            assert_eq!(snip.get("test1"), Some(&quote!(fn test() {}).to_string()));
-            assert_eq!(snip.get("test2"), Some(&quote!(fn test() {}).to_string()));
+            assert_eq!(
+                snip.get("test1"),
+                Some(
+                    &quote!(
+                        fn test() {}
+                    )
+                    .to_string()
+                )
+            );
+            assert_eq!(
+                snip.get("test2"),
+                Some(
+                    &quote!(
+                        fn test() {}
+                    )
+                    .to_string()
+                )
+            );
         }
 
         {
@@ -364,8 +388,24 @@ mod test {
 
             let snip = snippets(&src);
 
-            assert_eq!(snip.get("test1"), Some(&quote!(fn test() {}).to_string()));
-            assert_eq!(snip.get("test2"), Some(&quote!(fn test() {}).to_string()));
+            assert_eq!(
+                snip.get("test1"),
+                Some(
+                    &quote!(
+                        fn test() {}
+                    )
+                    .to_string()
+                )
+            );
+            assert_eq!(
+                snip.get("test2"),
+                Some(
+                    &quote!(
+                        fn test() {}
+                    )
+                    .to_string()
+                )
+            );
         }
 
         {
@@ -376,8 +416,24 @@ mod test {
             "#;
 
             let snip = snippets(&src);
-            assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
-            assert_eq!(snip.get("bar2"), Some(&quote!(fn bar() {}).to_string()));
+            assert_eq!(
+                snip.get("bar"),
+                Some(
+                    &quote!(
+                        fn bar() {}
+                    )
+                    .to_string()
+                )
+            );
+            assert_eq!(
+                snip.get("bar2"),
+                Some(
+                    &quote!(
+                        fn bar() {}
+                    )
+                    .to_string()
+                )
+            );
         }
     }
 
@@ -396,17 +452,36 @@ mod test {
 
         let snip = snippets(&src);
 
-        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+        assert_eq!(
+            snip.get("bar"),
+            Some(
+                &quote!(
+                    fn bar() {}
+                )
+                .to_string()
+            )
+        );
         assert_eq!(
             snip.get("foo"),
             // #[snippet = "hoge"] should be removed.
             Some(
-                &quote!(mod foo {
-                    fn hoge() {}
-                }).to_string()
+                &quote!(
+                    mod foo {
+                        fn hoge() {}
+                    }
+                )
+                .to_string()
             )
         );
-        assert_eq!(snip.get("hoge"), Some(&quote!(fn hoge() {}).to_string()));
+        assert_eq!(
+            snip.get("hoge"),
+            Some(
+                &quote!(
+                    fn hoge() {}
+                )
+                .to_string()
+            )
+        );
     }
 
     #[test]
@@ -420,8 +495,24 @@ mod test {
         "#;
 
         let snip = snippets(&src);
-        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
-        assert_eq!(snip.get("Baz"), Some(&quote!(struct Baz();).to_string()));
+        assert_eq!(
+            snip.get("bar"),
+            Some(
+                &quote!(
+                    fn bar() {}
+                )
+                .to_string()
+            )
+        );
+        assert_eq!(
+            snip.get("Baz"),
+            Some(
+                &quote!(
+                    struct Baz();
+                )
+                .to_string()
+            )
+        );
     }
 
     #[test]
@@ -435,7 +526,15 @@ mod test {
         "#;
 
         let snip = snippets(&src);
-        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+        assert_eq!(
+            snip.get("bar"),
+            Some(
+                &quote!(
+                    fn bar() {}
+                )
+                .to_string()
+            )
+        );
         assert_eq!(
             format_src(snip["baz"].as_str()).unwrap(),
             format_src("fn bar() {} fn baz() {}").unwrap()
@@ -453,7 +552,15 @@ mod test {
         "#;
 
         let snip = snippets(&src);
-        assert_eq!(snip.get("bar"), Some(&quote!(fn bar() {}).to_string()));
+        assert_eq!(
+            snip.get("bar"),
+            Some(
+                &quote!(
+                    fn bar() {}
+                )
+                .to_string()
+            )
+        );
         // Original order of "uses" are not saved.
         assert_eq!(
             format_src(snip["baz"].as_str()).unwrap(),
