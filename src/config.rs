@@ -5,8 +5,8 @@ use std::iter;
 use std::path::{Path, PathBuf};
 
 use crate::fsutil;
-use crate::glob::glob;
 use crate::writer;
+use glob::glob;
 
 #[derive(Debug)]
 pub struct Config<'a> {

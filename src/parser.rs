@@ -310,6 +310,7 @@ mod test {
     use super::parse_snippet;
     use crate::snippet::process_snippets;
     use crate::writer::format_src;
+    use quote::quote;
     use std::collections::BTreeMap;
 
     fn snippets(src: &str) -> BTreeMap<String, String> {

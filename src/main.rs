@@ -1,21 +1,3 @@
-#[macro_use]
-extern crate clap;
-extern crate glob;
-#[cfg(test)]
-#[macro_use]
-extern crate quote;
-#[cfg(not(test))]
-extern crate quote;
-extern crate rustfmt_nightly;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate syn;
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-
 mod config;
 mod fsutil;
 mod parser;
@@ -25,7 +7,8 @@ mod writer;
 use std::fs;
 use std::io::Read;
 
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{crate_authors, crate_version, App, AppSettings, Arg, SubCommand};
+use log::error;
 
 use std::error::Error;
 
