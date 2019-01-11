@@ -8,6 +8,7 @@ license = "MIT"
 readme = "README.md"
 description = "A snippet extractor for competitive programmers"
 categories = ["template-engine"]
+edition = "2018"
 
 [lib]
 plugin = true

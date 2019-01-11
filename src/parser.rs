@@ -2,7 +2,7 @@ use quote::ToTokens;
 use syn;
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
-use snippet::{Snippet, SnippetAttributes};
+use crate::snippet::{Snippet, SnippetAttributes};
 use std::collections::HashSet;
 
 macro_rules! get_attrs_impl {
@@ -308,9 +308,9 @@ pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::parse::Error> {
 #[cfg(test)]
 mod test {
     use super::parse_snippet;
-    use snippet::process_snippets;
+    use crate::snippet::process_snippets;
+    use crate::writer::format_src;
     use std::collections::BTreeMap;
-    use writer::format_src;
 
     fn snippets(src: &str) -> BTreeMap<String, String> {
         let snips = parse_snippet(src).unwrap();

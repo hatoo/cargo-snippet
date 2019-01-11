@@ -55,7 +55,8 @@ pub fn write_vscode(snippets: &BTreeMap<String, String>) {
                     },
                 )
             })
-        }).collect();
+        })
+        .collect();
 
     if let Ok(json) = serde_json::to_string_pretty(&vscode) {
         println!("{}", json);

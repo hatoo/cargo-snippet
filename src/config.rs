@@ -4,9 +4,9 @@ use std::fs;
 use std::iter;
 use std::path::{Path, PathBuf};
 
-use fsutil;
-use glob::glob;
-use writer;
+use crate::fsutil;
+use crate::glob::glob;
+use crate::writer;
 
 #[derive(Debug)]
 pub struct Config<'a> {
