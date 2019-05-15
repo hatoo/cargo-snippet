@@ -1,6 +1,6 @@
 [package]
 name = "cargo-snippet"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["hatoo <hato2000@gmail.com>"]
 repository = "https://github.com/hatoo/cargo-snippet.git"
 keywords = ["subcommand", "cargo-subcommand", "cargo", "snippet", "competitive"]
@@ -23,7 +23,7 @@ required-features = ["binaries"]
 syn = { version = "0.15", features = ["full", "parsing", "extra-traits", "printing"], optional = true }
 quote = { version = "0.6", optional = true }
 rustfmt-nightly = { version = "1", optional = true }
-glob = { version = "0.2", optional = true }
+glob = { version = "0.3", optional = true }
 clap = { version = "2.29", optional = true }
 serde = { version = "1.0", optional = true}
 serde_derive = { version = "1.0", optional = true}
