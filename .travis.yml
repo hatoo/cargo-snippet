@@ -2,5 +2,7 @@ language: rust
 rust:
   - nightly
 script:
-  - cargo build --features="binaries" --verbose --all
-  - cargo test --features="binaries" --verbose --all
+  - cargo build
+  - cargo test
+  - cargo build --features="binaries"
+  - cargo test --features="binaries"
