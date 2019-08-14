@@ -47,7 +47,7 @@ macro_rules! remove_snippet_attr_impl {
                 $(
                     $v(ref mut x) => {
                         x.attrs.retain(|attr| {
-                            attr.interpret_meta().map(|m| m.name() != "snippet").unwrap_or(true)
+                            attr.parse_meta().map(|m| m.path().to_token_stream().to_string() != "snippet").unwrap_or(true)
                         });
                     },
                 )*
@@ -102,6 +102,9 @@ macro_rules! get_default_snippet_name_impl {
                     Some(x.ident.to_string())
                 },
             )*
+            Item::Fn(ref x) => {
+                Some(x.sig.ident.to_string())
+            }
             _ => None
         }
     };
@@ -112,7 +115,6 @@ fn get_default_snippet_name(item: &Item) -> Option<String> {
         item,
         Item::Static,
         Item::Const,
-        Item::Fn,
         Item::Mod,
         Item::Struct,
         Item::Enum,
@@ -122,8 +124,8 @@ fn get_default_snippet_name(item: &Item) -> Option<String> {
 }
 
 fn get_snippet_name(attr: &Attribute) -> Option<String> {
-    attr.interpret_meta().and_then(|metaitem| {
-        if metaitem.name() != "snippet" {
+    attr.parse_meta().ok().and_then(|metaitem| {
+        if metaitem.path().to_token_stream().to_string() != "snippet" {
             return None;
         }
 
@@ -134,7 +136,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
                 .iter()
                 .filter_map(|item| {
                     if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
-                        if nv.ident == "name" {
+                        if nv.path.to_token_stream().to_string() == "name" {
                             Some(unquote(&nv.lit.clone().into_token_stream().to_string()))
                         } else {
                             None
@@ -152,8 +154,8 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
 }
 
 fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
-    attr.interpret_meta().and_then(|metaitem| {
-        if metaitem.name() != "snippet" {
+    attr.parse_meta().ok().and_then(|metaitem| {
+        if metaitem.path().to_token_stream().to_string() != "snippet" {
             return None;
         }
 
@@ -166,7 +168,7 @@ fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
                     if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
                         // It can't use "use" keyword here xD.
                         // It is reserved.
-                        if nv.ident == "include" {
+                        if nv.path.to_token_stream().to_string() == "include" {
                             let uses = unquote(&nv.lit.clone().into_token_stream().to_string());
                             Some(
                                 uses.split(',')
@@ -194,8 +196,8 @@ fn parse_attrs(
 ) -> Option<SnippetAttributes> {
     if !attrs
         .iter()
-        .filter_map(|a| a.interpret_meta())
-        .any(|m| m.name() == "snippet")
+        .filter_map(|a| a.parse_meta().ok())
+        .any(|m| m.path().to_token_stream().to_string() == "snippet")
     {
         return None;
     }
@@ -205,13 +207,13 @@ fn parse_attrs(
         .filter_map(get_snippet_name)
         .collect::<HashSet<_>>();
 
-    let attr_snippet_without_value = attrs.iter().filter_map(|a| a.interpret_meta()).any(|m| {
-        if m.name() != "snippet" {
+    let attr_snippet_without_value = attrs.iter().filter_map(|a| a.parse_meta().ok()).any(|m| {
+        if m.path().to_token_stream().to_string() != "snippet" {
             return false;
         }
 
         match m {
-            syn::Meta::Word(_) => true,
+            syn::Meta::Path(_) => true,
             _ => false,
         }
     });
@@ -279,8 +281,8 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
     if let Some(attrs) = parse_attrs(&file.attrs, None) {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
-            attr.interpret_meta()
-                .map(|m| m.name() != "snippet")
+            attr.parse_meta()
+                .map(|m| m.path().to_token_stream().to_string() != "snippet")
                 .unwrap_or(true)
         });
         file.items.iter_mut().for_each(|item| {

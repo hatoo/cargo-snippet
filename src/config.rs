@@ -49,7 +49,7 @@ impl<'a> Target<'a> {
             .unwrap_or(Target::ProjectSrc)
     }
 
-    pub fn iter_paths(&self) -> Box<Iterator<Item = PathBuf> + 'a> {
+    pub fn iter_paths(&self) -> Box<dyn Iterator<Item = PathBuf> + 'a> {
         match self {
             Target::ProjectSrc => fsutil::project_root_path()
                 .and_then(|mut path| {
@@ -57,7 +57,7 @@ impl<'a> Target<'a> {
                     path.push("**");
                     path.push("*.rs");
                     glob(&format!("{}", path.display())).ok().map(|paths| {
-                        Box::new(paths.filter_map(|e| e.ok())) as Box<Iterator<Item = PathBuf>>
+                        Box::new(paths.filter_map(|e| e.ok())) as Box<dyn Iterator<Item = PathBuf>>
                     })
                 })
                 .unwrap_or_else(|| Box::new(iter::empty())),
