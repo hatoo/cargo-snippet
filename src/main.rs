@@ -57,6 +57,7 @@ fn main() {
     let mut buf = String::new();
     for path in config.target.iter_paths() {
         buf.clear();
+        log::info!("Start read {:?}", &path);
         if let Some(mut file) = report_error(fs::File::open(path)) {
             if report_error(file.read_to_string(&mut buf)).is_some() {
                 if let Some(mut parsed) = report_error(parser::parse_snippet(&buf)) {

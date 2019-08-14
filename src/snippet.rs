@@ -49,6 +49,8 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
                             }
                         }
                     }
+                } else {
+                    log::warn!("Dependency {} is missing", &dep);
                 }
             }
         }
