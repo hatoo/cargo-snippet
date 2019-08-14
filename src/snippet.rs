@@ -39,13 +39,14 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
         while let Some(dep) = stack.pop() {
             if !used.contains(&dep) {
                 used.insert(dep.clone());
-                let c = &pre[&dep];
-                *res.entry(name.clone()).or_insert_with(String::new) += c.as_str();
+                if let Some(c) = &pre.get(&dep) {
+                    *res.entry(name.clone()).or_insert_with(String::new) += c.as_str();
 
-                if let Some(ds) = deps.get(&dep) {
-                    for d in ds {
-                        if !used.contains(d) {
-                            stack.push(d.clone());
+                    if let Some(ds) = deps.get(&dep) {
+                        for d in ds {
+                            if !used.contains(d) {
+                                stack.push(d.clone());
+                            }
                         }
                     }
                 }

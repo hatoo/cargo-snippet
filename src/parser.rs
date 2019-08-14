@@ -591,4 +591,25 @@ mod test {
             format_src("fn bar() {} fn baz() {}").unwrap()
         );
     }
+
+    #[test]
+    fn test_missing_dependency() {
+        let src = r#"
+            #[snippet(include = "foo")]
+            fn bar() {}
+
+            #[snippet(include = "foo")]
+            fn baz() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("fn bar() {}").unwrap()
+        );
+        assert_eq!(
+            format_src(snip["baz"].as_str()).unwrap(),
+            format_src("fn baz() {}").unwrap()
+        );
+    }
 }
