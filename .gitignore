@@ -3,3 +3,4 @@
 **/*.rs.bk
 .vs
 /.idea
+Cargo.lock
