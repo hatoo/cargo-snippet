@@ -33,21 +33,14 @@ cargo-snippet = "0.2"
 
 Add this to src/lib.rs.
 
-```rust
-#![feature(plugin)]
-#![plugin(cargo_snippet)]
-```
-
 Write some snippet codes and tests.
 
 ```rust
-
-#![feature(plugin)]
-#![plugin(cargo_snippet)]
+use cargo_snippet::snippet;
 
 // Annotate snippet name
-#[snippet = "mymath"]
-#[snippet = "gcd"]
+#[snippet("mymath")]
+#[snippet("gcd")]
 fn gcd(a: u64, b: u64) -> u64 {
     if b == 0 {
         a
@@ -68,7 +61,7 @@ fn lcm(a: u64, b: u64) -> u64 {
 // Include snippet
 #[snippet(include = "gcd")]
 fn gcd_list(list: &[u64]) -> u64 {
-    list.iter().fold(list[0], |a, b| gcd(a, b));
+    list.iter().fold(list[0], |a, &b| gcd(a, b))
 }
 
 #[test]
@@ -80,7 +73,6 @@ fn test_gcd() {
 fn test_lcm() {
     assert_eq!(lcm(3, 19), 57);
 }
-
 ```
 
 You can test.
