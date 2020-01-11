@@ -11,7 +11,7 @@ categories = ["template-engine"]
 edition = "2018"
 
 [lib]
-plugin = true
+proc-macro = true
 path = "src/lib.rs"
 
 [[bin]]
