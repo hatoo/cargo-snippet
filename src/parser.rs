@@ -470,7 +470,7 @@ mod test {
         );
         assert_eq!(
             snip.get("foo"),
-            // #[snippet = "hoge"] should be removed.
+            // #[snippet("hoge")] should be removed.
             Some(
                 &quote!(
                     mod foo {
