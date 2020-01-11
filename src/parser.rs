@@ -134,16 +134,18 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
             Meta::List(list) => list
                 .nested
                 .iter()
-                .filter_map(|item| {
-                    if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
+                .filter_map(|item| match item {
+                    NestedMeta::Meta(Meta::NameValue(ref nv)) => {
                         if nv.path.to_token_stream().to_string() == "name" {
                             Some(unquote(&nv.lit.clone().into_token_stream().to_string()))
                         } else {
                             None
                         }
-                    } else {
-                        None
                     }
+                    NestedMeta::Lit(lit) => {
+                        Some(unquote(lit.to_token_stream().to_string().as_str()))
+                    }
+                    _ => None,
                 })
                 .next(),
             // #[snippet=".."]
@@ -333,7 +335,7 @@ mod test {
     #[test]
     fn test_parse_simple_case() {
         let src = r#"
-            #[snippet="test"]
+            #[snippet("test")]
             fn test() {}
         "#;
 
@@ -354,12 +356,14 @@ mod test {
     fn test_multiple_annotaton() {
         {
             let src = r#"
-                #[snippet="test1"]
-                #[snippet="test2"]
+                #[snippet("test1")]
+                #[snippet("test2")]
                 fn test() {}
             "#;
 
             let snip = snippets(&src);
+
+            dbg!(&snip);
 
             assert_eq!(
                 snip.get("test1"),
@@ -383,8 +387,8 @@ mod test {
 
         {
             let src = r#"
-                #![snippet="test1"]
-                #![snippet="test2"]
+                #![snippet("test1")]
+                #![snippet("test2")]
 
                 fn test() {}
             "#;
@@ -414,7 +418,7 @@ mod test {
         {
             let src = r#"
                 #[snippet]
-                #[snippet = "bar2"]
+                #[snippet("bar2")]
                 fn bar() {}
             "#;
 
@@ -443,12 +447,12 @@ mod test {
     #[test]
     fn test_deep() {
         let src = r#"
-            #[snippet = "bar"]
+            #[snippet("bar")]
             fn bar() {}
 
-            #[snippet = "foo"]
+            #[snippet("foo")]
             mod foo {
-                #[snippet = "hoge"]
+                #[snippet("hoge")]
                 fn hoge() {}
             }
         "#;
@@ -466,7 +470,7 @@ mod test {
         );
         assert_eq!(
             snip.get("foo"),
-            // #[snippet = "hoge"] should be removed.
+            // #[snippet("hoge")] should be removed.
             Some(
                 &quote!(
                     mod foo {
@@ -521,7 +525,7 @@ mod test {
     #[test]
     fn test_snippet_dependency() {
         let src = r#"
-            #[snippet = "bar"]
+            #[snippet("bar")]
             fn bar() {}
 
             #[snippet(name = "baz", include = "bar")]
