@@ -5,6 +5,13 @@ use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 use crate::snippet::{Snippet, SnippetAttributes};
 use std::collections::HashSet;
 
+fn is_snippet_path(path: &str) -> bool {
+    match path {
+        "snippet" | "cargo_snippet :: snippet" => true,
+        _ => false,
+    }
+}
+
 macro_rules! get_attrs_impl {
     ($arg: expr, $($v: path), *) => {
         {
@@ -47,7 +54,7 @@ macro_rules! remove_snippet_attr_impl {
                 $(
                     $v(ref mut x) => {
                         x.attrs.retain(|attr| {
-                            attr.parse_meta().map(|m| m.path().to_token_stream().to_string() != "snippet").unwrap_or(true)
+                            attr.parse_meta().map(|m| !is_snippet_path(m.path().to_token_stream().to_string().as_str())).unwrap_or(true)
                         });
                     },
                 )*
@@ -125,7 +132,7 @@ fn get_default_snippet_name(item: &Item) -> Option<String> {
 
 fn get_snippet_name(attr: &Attribute) -> Option<String> {
     attr.parse_meta().ok().and_then(|metaitem| {
-        if metaitem.path().to_token_stream().to_string() != "snippet" {
+        if !is_snippet_path(metaitem.path().to_token_stream().to_string().as_str()) {
             return None;
         }
 
@@ -157,7 +164,7 @@ fn get_snippet_name(attr: &Attribute) -> Option<String> {
 
 fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
     attr.parse_meta().ok().and_then(|metaitem| {
-        if metaitem.path().to_token_stream().to_string() != "snippet" {
+        if !is_snippet_path(metaitem.path().to_token_stream().to_string().as_str()) {
             return None;
         }
 
@@ -199,7 +206,7 @@ fn parse_attrs(
     if !attrs
         .iter()
         .filter_map(|a| a.parse_meta().ok())
-        .any(|m| m.path().to_token_stream().to_string() == "snippet")
+        .any(|m| is_snippet_path(m.path().to_token_stream().to_string().as_str()))
     {
         return None;
     }
@@ -210,7 +217,7 @@ fn parse_attrs(
         .collect::<HashSet<_>>();
 
     let attr_snippet_without_value = attrs.iter().filter_map(|a| a.parse_meta().ok()).any(|m| {
-        if m.path().to_token_stream().to_string() != "snippet" {
+        if !is_snippet_path(m.path().to_token_stream().to_string().as_str()) {
             return false;
         }
 
@@ -284,7 +291,7 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
         let mut file = file.clone();
         file.attrs.retain(|attr| {
             attr.parse_meta()
-                .map(|m| m.path().to_token_stream().to_string() != "snippet")
+                .map(|m| !is_snippet_path(m.path().to_token_stream().to_string().as_str()))
                 .unwrap_or(true)
         });
         file.items.iter_mut().for_each(|item| {
@@ -625,6 +632,7 @@ mod test {
         "#;
 
         let snip = snippets(&src);
+        dbg!(&snip);
         assert_eq!(
             format_src(snip["bar"].as_str()).unwrap(),
             format_src("fn bar() {}").unwrap()
