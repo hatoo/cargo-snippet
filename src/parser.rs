@@ -616,4 +616,18 @@ mod test {
             format_src("fn baz() {}").unwrap()
         );
     }
+
+    #[test]
+    fn test_attribute_full_path() {
+        let src = r#"
+            #[cargo_snippet::snippet]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("fn bar() {}").unwrap()
+        );
+    }
 }
