@@ -34,7 +34,7 @@ Add dependencies to Cargo.toml.
 
 ```toml
 [dependencies]
-cargo-snippet = "0.4"
+cargo-snippet = "0.5"
 ```
 
 Add this to src/lib.rs.
