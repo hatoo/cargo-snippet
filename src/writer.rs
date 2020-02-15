@@ -1,6 +1,4 @@
-use rustfmt_nightly;
 use serde_derive::Serialize;
-use serde_json;
 use std::collections::BTreeMap;
 
 #[derive(Serialize)]

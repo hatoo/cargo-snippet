@@ -1,5 +1,4 @@
 use quote::ToTokens;
-use syn;
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
 use crate::snippet::{Snippet, SnippetAttributes};
