@@ -40,7 +40,7 @@ pub fn format_src(src: &str) -> Option<String> {
         .stdout(process::Stdio::piped())
         .stderr(process::Stdio::piped())
         .spawn()
-        .ok()?;
+        .expect("Failed to spawn rustfmt process");
     {
         let mut stdin = command.stdin.take()?;
         write!(stdin, "{}", src).unwrap();
@@ -48,6 +48,7 @@ pub fn format_src(src: &str) -> Option<String> {
     let out = command.wait_with_output().ok()?;
 
     if !out.status.success() {
+        log::error!("rustfmt returns non-zero status");
         return None;
     }
 
