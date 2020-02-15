@@ -32,4 +32,5 @@ log = { version= "0.4", optional = true }
 env_logger = { version= "0.7", optional = true }
 
 [features]
-binaries = ["syn", "quote", "rustfmt-nightly", "glob", "clap", "serde", "serde_derive", "serde_json", "log", "env_logger"]
+binaries = ["syn", "quote", "glob", "clap", "serde", "serde_derive", "serde_json", "log", "env_logger"]
+inner_rustfmt = ["rustfmt-nightly"]
