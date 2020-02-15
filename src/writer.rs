@@ -7,6 +7,7 @@ struct VScode {
     body: Vec<String>,
 }
 
+#[cfg(feature = "inner_rustfmt")]
 pub fn format_src(src: &str) -> Option<String> {
     let mut rustfmt_config = rustfmt_nightly::Config::default();
     rustfmt_config
@@ -23,10 +24,36 @@ pub fn format_src(src: &str) -> Option<String> {
         .format(input)
         .is_ok()
     {
-        String::from_utf8(out).ok()
+        String::from_utf8(out).ok().map(|s| s.replace("\r\n", "\n"))
     } else {
         None
     }
+}
+
+#[cfg(not(feature = "inner_rustfmt"))]
+pub fn format_src(src: &str) -> Option<String> {
+    use std::io::Write;
+    use std::process;
+
+    let mut command = process::Command::new("rustfmt")
+        .stdin(process::Stdio::piped())
+        .stdout(process::Stdio::piped())
+        .stderr(process::Stdio::piped())
+        .spawn()
+        .ok()?;
+    {
+        let mut stdin = command.stdin.take()?;
+        write!(stdin, "{}", src).unwrap();
+    }
+    let out = command.wait_with_output().ok()?;
+
+    if !out.status.success() {
+        return None;
+    }
+
+    let stdout = out.stdout;
+    let out = String::from_utf8(stdout).ok()?;
+    Some(out.replace("\r\n", "\n"))
 }
 
 pub fn write_neosnippet(snippets: &BTreeMap<String, String>) {
@@ -75,9 +102,6 @@ pub fn write_ultisnips(snippets: &BTreeMap<String, String>) {
 
 #[test]
 fn test_format_src() {
-    #[cfg(windows)]
-    assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\r\n".into()));
-    #[cfg(not(windows))]
     assert_eq!(format_src("fn foo(){}"), Some("fn foo() {}\n".into()));
 
     assert_eq!(
