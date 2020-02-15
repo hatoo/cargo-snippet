@@ -2,6 +2,7 @@ language: rust
 rust:
   - stable
 script:
+  - rustup component add rustfmt
   - cargo build
   - cargo test
   - cargo build --features="binaries"
