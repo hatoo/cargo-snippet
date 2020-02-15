@@ -10,9 +10,15 @@ You can manage code snippet with test and bench !!
 
 ## Installing
 
-You need nightly rust.
+You need to install `rustfmt` to run `cargo-snippet`.
 
+```bash
+$ rustup component add rustfmt
 ```
+
+Install `cargo-snippet`
+
+```bash
 $ cargo install cargo-snippet --features="binaries"
 ```
 
@@ -51,7 +57,7 @@ fn gcd(a: u64, b: u64) -> u64 {
 
 // Also works
 #[snippet(name = "mymath")]
-// Equivalent to #[snippet = "lcm"]
+// Equivalent to #[snippet("lcm")]
 #[snippet]
 fn lcm(a: u64, b: u64) -> u64 {
     a / gcd(a, b) * b
