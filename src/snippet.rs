@@ -5,6 +5,8 @@ pub struct SnippetAttributes {
     pub names: HashSet<String>,
     // Dependencies
     pub uses: HashSet<String>,
+    // Prefix for snippet. It's will be emitted prior to the snippet.
+    pub prefix: String,
 }
 
 pub struct Snippet {
@@ -14,12 +16,20 @@ pub struct Snippet {
 }
 
 pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
-    let mut pre: BTreeMap<String, String> = BTreeMap::new();
+    #[derive(Default, Clone, Debug)]
+    struct Snip {
+        prefix: String,
+        content: String,
+    }
+
+    let mut pre: BTreeMap<String, Snip> = BTreeMap::new();
     let mut deps: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
     for snip in snips {
         for name in &snip.attrs.names {
-            *pre.entry(name.clone()).or_insert_with(String::new) += &snip.content;
+            let s = pre.entry(name.clone()).or_default();
+            s.prefix += &snip.attrs.prefix;
+            s.content += &snip.content;
 
             for dep in &snip.attrs.uses {
                 deps.entry(name.clone())
@@ -29,7 +39,7 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
         }
     }
 
-    let mut res: BTreeMap<String, String> = BTreeMap::new();
+    let mut res: BTreeMap<String, Snip> = BTreeMap::new();
 
     for (name, uses) in &deps {
         let mut used = HashSet::new();
@@ -40,7 +50,10 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
             if !used.contains(&dep) {
                 used.insert(dep.clone());
                 if let Some(c) = &pre.get(&dep) {
-                    *res.entry(name.clone()).or_insert_with(String::new) += c.as_str();
+                    // *res.entry(name.clone()).or_insert_with(String::new) += c.as_str();
+                    let s = res.entry(name.clone()).or_default();
+                    s.prefix += &c.prefix;
+                    s.content += &c.content;
 
                     if let Some(ds) = deps.get(&dep) {
                         for d in ds {
@@ -56,10 +69,14 @@ pub fn process_snippets(snips: &[Snippet]) -> BTreeMap<String, String> {
         }
     }
 
-    for (name, content) in pre {
+    for (name, snip) in pre {
         // Dependency first
-        *res.entry(name).or_insert_with(String::new) += content.as_str();
+        let s = res.entry(name).or_default();
+        s.prefix += snip.prefix.as_str();
+        s.content += snip.content.as_str();
     }
 
-    res
+    res.into_iter()
+        .map(|(k, v)| (k, v.prefix + v.content.as_str()))
+        .collect()
 }
