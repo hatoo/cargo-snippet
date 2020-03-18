@@ -214,8 +214,11 @@ fn get_simple_attr(attr: &Attribute, key: &str) -> Vec<String> {
                     .filter_map(|item| {
                         if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
                             if nv.path.to_token_stream().to_string() == key {
-                                let value =
-                                    unquote(&nv.lit.clone().into_token_stream().to_string());
+                                let value = if let syn::Lit::Str(s) = &nv.lit.clone() {
+                                    s.value()
+                                } else {
+                                    panic!("attribute must be string");
+                                };
                                 Some(value)
                             } else {
                                 None
@@ -693,6 +696,30 @@ mod test {
         assert_eq!(
             format_src(snip["bar"].as_str()).unwrap(),
             format_src("use std::io;\nfn bar() {}").unwrap()
+        );
+
+        let src = r#"
+            #[snippet(prefix="use std::io::{self,Read};\nuse std::str::FromStr;")]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("use std::io::{self,Read};\nuse std::str::FromStr;\nfn bar() {}").unwrap()
+        );
+
+        let src = r#"
+            #[snippet(prefix=r"use std::io::{self,Read};
+use std::str::FromStr;")]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("use std::io::{self,Read};\nuse std::str::FromStr;\nfn bar() {}").unwrap()
         );
     }
 
