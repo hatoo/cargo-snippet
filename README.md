@@ -70,6 +70,12 @@ fn gcd_list(list: &[u64]) -> u64 {
     list.iter().fold(list[0], |a, &b| gcd(a, b))
 }
 
+// You can set prefix string.
+// Note: All codes will be formatted by rustfmt on output
+#[snippet(prefix = "use std::io::{self,Read};")]
+#[snippet(prefix = "use std::str::FromStr;")]
+fn foo() {}
+
 #[test]
 fn test_gcd() {
     assert_eq!(gcd(57, 3), 3);
@@ -91,6 +97,11 @@ Extract snippet !
 
 ```
 $ cargo snippet
+snippet foo
+    use std::io::{self, Read};
+    use std::str::FromStr;
+    fn foo() {}
+
 snippet gcd
     fn gcd(a: u64, b: u64) -> u64 {
         if b == 0 {
@@ -109,7 +120,7 @@ snippet gcd_list
         }
     }
     fn gcd_list(list: &[u64]) -> u64 {
-        list.iter().fold(list[0], |a, b| gcd(a, b));
+        list.iter().fold(list[0], |a, &b| gcd(a, b))
     }
 
 snippet lcm
