@@ -198,6 +198,43 @@ fn get_snippet_uses(attr: &Attribute) -> Option<Vec<String>> {
     })
 }
 
+fn get_simple_attr(attr: &Attribute, key: &str) -> Vec<String> {
+    attr.parse_meta()
+        .ok()
+        .and_then(|metaitem| {
+            if !is_snippet_path(metaitem.path().to_token_stream().to_string().as_str()) {
+                return None;
+            }
+
+            match metaitem {
+                // #[snippet(`key`="..")]
+                Meta::List(list) => list
+                    .nested
+                    .iter()
+                    .filter_map(|item| {
+                        if let NestedMeta::Meta(Meta::NameValue(ref nv)) = item {
+                            if nv.path.to_token_stream().to_string() == key {
+                                let value = if let syn::Lit::Str(s) = &nv.lit.clone() {
+                                    s.value()
+                                } else {
+                                    panic!("attribute must be string");
+                                };
+                                Some(value)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+                _ => None,
+            }
+        })
+        .unwrap_or(Vec::new())
+}
+
 fn parse_attrs(
     attrs: &[Attribute],
     default_snippet_name: Option<String>,
@@ -246,7 +283,18 @@ fn parse_attrs(
         .flat_map(|v| v.into_iter())
         .collect::<HashSet<_>>();
 
-    Some(SnippetAttributes { names, uses })
+    let prefix = attrs
+        .iter()
+        .map(|attr| get_simple_attr(attr, "prefix").into_iter())
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Some(SnippetAttributes {
+        names,
+        uses,
+        prefix,
+    })
 }
 
 // Get snippet names and snippet code (not formatted)
@@ -631,10 +679,72 @@ mod test {
         "#;
 
         let snip = snippets(&src);
-        dbg!(&snip);
         assert_eq!(
             format_src(snip["bar"].as_str()).unwrap(),
             format_src("fn bar() {}").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_attribute_prefix() {
+        let src = r#"
+            #[snippet(prefix = "use std::io;")]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("use std::io;\nfn bar() {}").unwrap()
+        );
+
+        let src = r#"
+            #[snippet(prefix="use std::io::{self,Read};\nuse std::str::FromStr;")]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("use std::io::{self,Read};\nuse std::str::FromStr;\nfn bar() {}").unwrap()
+        );
+
+        let src = r#"
+            #[snippet(prefix=r"use std::io::{self,Read};
+use std::str::FromStr;")]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src("use std::io::{self,Read};\nuse std::str::FromStr;\nfn bar() {}").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_attribute_prefix_include() {
+        let src = r#"
+            #[snippet(prefix = "use std::sync;")]
+            fn foo() {}
+            #[snippet(prefix = "use std::io;", include = "foo")]
+            fn bar() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["bar"].as_str()).unwrap(),
+            format_src(
+                &quote!(
+                    use std::sync;
+                    use std::io;
+                    fn foo() {}
+                    fn bar() {}
+                )
+                .to_string()
+            )
+            .unwrap()
         );
     }
 }
