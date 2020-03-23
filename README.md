@@ -39,6 +39,9 @@ cargo-snippet = "0.5"
 
 Add this to src/lib.rs.
 
+Note: `cargo-snippet` on dependencies is needed just for register `#[snippet]` attribute to prevent error from the compiler.
+All logic that extract snippet is in binary package which is installed by `Installing` section.
+
 Write some snippet codes and tests.
 
 ```rust
