@@ -1,4 +1,7 @@
+use lazy_static::lazy_static;
+use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use quote::ToTokens;
+use regex::Regex;
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
 use crate::snippet::{Snippet, SnippetAttributes};
@@ -297,6 +300,97 @@ fn parse_attrs(
     })
 }
 
+fn next_token_is_doc(token: &TokenTree) -> bool {
+    match token {
+        TokenTree::Group(ref g) => g.to_string().starts_with("[doc = "),
+        _ => false,
+    }
+}
+
+fn stringify_tokens(tokens: TokenStream) -> String {
+    lazy_static! {
+        static ref BLOCK_OUTER_DOC_RE: Regex =
+            Regex::new(r#"^\[doc = "(?:/\*\*)(.*)(?:\*/)"\]$"#).unwrap();
+        static ref BLOCK_INNER_DOC_RE: Regex =
+            Regex::new(r#"^\[doc = "(?:/\*!)(.*)(?:\*/)"\]$"#).unwrap();
+        static ref LINE_DOC_RE: Regex = Regex::new(r#"^\[doc = "(.*)"\]$"#).unwrap();
+    }
+    let mut s = String::new();
+    let mut iter = tokens.into_iter().peekable();
+    while let Some(tok) = iter.next() {
+        match tok {
+            TokenTree::Punct(ref punct) => {
+                if punct.as_char() == '!' && iter.peek().map(next_token_is_doc).unwrap_or(false) {
+                    // remove last `# ` by calling pop twice
+                    s.pop();
+                    s.pop();
+
+                    let doc = iter.next().unwrap().to_string();
+                    if let Some(c) = BLOCK_INNER_DOC_RE
+                        .captures(doc.as_str())
+                        .and_then(|caps| caps.get(1))
+                    {
+                        // inner block doc
+                        c.as_str()
+                            .replace("\\n", "\n")
+                            .lines()
+                            .for_each(|line| s.push_str(format!("//!{}\n", line).as_str()));
+                    } else if let Some(c) = LINE_DOC_RE
+                        .captures(doc.as_str())
+                        .and_then(|caps| caps.get(1))
+                    {
+                        // inner line doc
+                        s.push_str(format!("//!{}\n", c.as_str()).as_str());
+                    }
+                } else if punct.as_char() == '#'
+                    && iter.peek().map(next_token_is_doc).unwrap_or(false)
+                {
+                    let doc = iter.next().unwrap().to_string();
+                    if let Some(c) = BLOCK_OUTER_DOC_RE
+                        .captures(doc.as_str())
+                        .and_then(|caps| caps.get(1))
+                    {
+                        // outer block doc
+                        c.as_str()
+                            .replace("\\n", "\n")
+                            .lines()
+                            .for_each(|line| s.push_str(format!("///{}\n", line).as_str()));
+                    } else if let Some(c) = LINE_DOC_RE
+                        .captures(doc.as_str())
+                        .and_then(|caps| caps.get(1))
+                    {
+                        // outer line doc
+                        s.push_str(format!("///{}\n", c.as_str()).as_str());
+                    }
+                } else {
+                    s.push_str(tok.to_string().as_str());
+                }
+            }
+            TokenTree::Group(ref g) => {
+                match g.delimiter() {
+                    Delimiter::Parenthesis => s.push('('),
+                    Delimiter::Brace => s.push('{'),
+                    Delimiter::Bracket => s.push('['),
+                    Delimiter::None => (),
+                }
+                s.push_str(stringify_tokens(g.stream()).as_str());
+                match g.delimiter() {
+                    Delimiter::Parenthesis => s.push(')'),
+                    Delimiter::Brace => s.push('}'),
+                    Delimiter::Bracket => s.push(']'),
+                    Delimiter::None => (),
+                }
+                s.push(' ');
+            }
+            _ => {
+                s.push_str(tok.to_string().as_str());
+                s.push(' ');
+            }
+        }
+    }
+    s
+}
+
 // Get snippet names and snippet code (not formatted)
 fn get_snippet_from_item(mut item: Item) -> Option<Snippet> {
     let default_name = get_default_snippet_name(&item);
@@ -306,7 +400,7 @@ fn get_snippet_from_item(mut item: Item) -> Option<Snippet> {
         remove_snippet_attr(&mut item);
         Snippet {
             attrs,
-            content: item.into_token_stream().to_string(),
+            content: stringify_tokens(item.into_token_stream()),
         }
     })
 }
@@ -346,7 +440,7 @@ fn get_snippet_from_file(file: File) -> Vec<Snippet> {
         });
         res.push(Snippet {
             attrs,
-            content: file.into_token_stream().to_string(),
+            content: stringify_tokens(file.into_token_stream()),
         })
     }
 
@@ -396,8 +490,8 @@ mod test {
         let snip = snippets(&src);
 
         assert_eq!(
-            snip.get("test"),
-            Some(
+            snip.get("test").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     fn test() {}
                 )
@@ -420,8 +514,8 @@ mod test {
             dbg!(&snip);
 
             assert_eq!(
-                snip.get("test1"),
-                Some(
+                snip.get("test1").and_then(|s| format_src(s)),
+                format_src(
                     &quote!(
                         fn test() {}
                     )
@@ -429,8 +523,8 @@ mod test {
                 )
             );
             assert_eq!(
-                snip.get("test2"),
-                Some(
+                snip.get("test2").and_then(|s| format_src(s)),
+                format_src(
                     &quote!(
                         fn test() {}
                     )
@@ -450,8 +544,8 @@ mod test {
             let snip = snippets(&src);
 
             assert_eq!(
-                snip.get("test1"),
-                Some(
+                snip.get("test1").and_then(|s| format_src(s)),
+                format_src(
                     &quote!(
                         fn test() {}
                     )
@@ -459,8 +553,8 @@ mod test {
                 )
             );
             assert_eq!(
-                snip.get("test2"),
-                Some(
+                snip.get("test2").and_then(|s| format_src(s)),
+                format_src(
                     &quote!(
                         fn test() {}
                     )
@@ -478,8 +572,8 @@ mod test {
 
             let snip = snippets(&src);
             assert_eq!(
-                snip.get("bar"),
-                Some(
+                snip.get("bar").and_then(|s| format_src(s)),
+                format_src(
                     &quote!(
                         fn bar() {}
                     )
@@ -487,8 +581,8 @@ mod test {
                 )
             );
             assert_eq!(
-                snip.get("bar2"),
-                Some(
+                snip.get("bar2").and_then(|s| format_src(s)),
+                format_src(
                     &quote!(
                         fn bar() {}
                     )
@@ -514,8 +608,8 @@ mod test {
         let snip = snippets(&src);
 
         assert_eq!(
-            snip.get("bar"),
-            Some(
+            snip.get("bar").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     fn bar() {}
                 )
@@ -523,9 +617,9 @@ mod test {
             )
         );
         assert_eq!(
-            snip.get("foo"),
+            snip.get("foo").and_then(|s| format_src(s)),
             // #[snippet("hoge")] should be removed.
-            Some(
+            format_src(
                 &quote!(
                     mod foo {
                         fn hoge() {}
@@ -535,8 +629,8 @@ mod test {
             )
         );
         assert_eq!(
-            snip.get("hoge"),
-            Some(
+            snip.get("hoge").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     fn hoge() {}
                 )
@@ -557,8 +651,8 @@ mod test {
 
         let snip = snippets(&src);
         assert_eq!(
-            snip.get("bar"),
-            Some(
+            snip.get("bar").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     fn bar() {}
                 )
@@ -566,8 +660,8 @@ mod test {
             )
         );
         assert_eq!(
-            snip.get("Baz"),
-            Some(
+            snip.get("Baz").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     struct Baz();
                 )
@@ -588,8 +682,8 @@ mod test {
 
         let snip = snippets(&src);
         assert_eq!(
-            snip.get("bar"),
-            Some(
+            snip.get("bar").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     fn bar() {}
                 )
@@ -614,8 +708,8 @@ mod test {
 
         let snip = snippets(&src);
         assert_eq!(
-            snip.get("bar"),
-            Some(
+            snip.get("bar").and_then(|s| format_src(s)),
+            format_src(
                 &quote!(
                     fn bar() {}
                 )
@@ -745,6 +839,140 @@ use std::str::FromStr;")]
                 .to_string()
             )
             .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_outer_line_doc() {
+        let src = r#"
+            /// This is outer doc comment. (exactly three slashes)
+            // This is *NOT* doc comment.
+            //// This is also *NOT* doc comment.
+            #[snippet]
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("/// This is outer doc comment. (exactly three slashes)\nfn foo() {}")
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_outer_block_doc() {
+        let src = r#"
+/** This is outer doc comment.
+doc comment1
+* doc comment2
+ doc comment finishes here! */
+/*
+NOT doc comment
+*/
+/*** NOT doc comment */
+#[snippet]
+fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src(
+                r#"
+/// This is outer doc comment.
+///doc comment1
+///* doc comment2
+/// doc comment finishes here!
+fn foo() {}
+"#
+            )
+            .unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_inner_line_doc() {
+        let src = r#"
+            #[snippet]
+            fn foo() {
+                //! This is inner doc comment.
+            }
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("fn foo() {\n//! This is inner doc comment.\n}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_inner_block_doc() {
+        let src = r#"
+#[snippet]
+fn foo() {
+/*! This is inner doc comment.
+doc comment1
+* doc comment2
+ doc comment finishes here! */
+/*
+NOT doc comment
+*/
+/*** NOT doc comment */
+}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src(
+                r#"
+fn foo() {
+//! This is inner doc comment.
+//!doc comment1
+//!* doc comment2
+//! doc comment finishes here!
+}
+"#
+            )
+            .unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_outer_line_doc_in_file() {
+        let src = r#"
+            #![snippet("file")]
+            /// This is outer doc comment.
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src("/// This is outer doc comment.\nfn foo() {}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_inner_line_doc_in_file() {
+        let src = r#"
+            #![snippet("file")]
+            //! This is inner doc comment.
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src("//! This is inner doc comment.\nfn foo() {}").unwrap(),
         );
     }
 }
