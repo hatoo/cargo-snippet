@@ -315,15 +315,15 @@ fn stringify_tokens(tokens: TokenStream) -> String {
             Regex::new(r#"^\[doc = "(?:/\*!)(.*)(?:\*/)"\]$"#).unwrap();
         static ref LINE_DOC_RE: Regex = Regex::new(r#"^\[doc = "(.*)"\]$"#).unwrap();
     }
-    let mut s = String::new();
+    let mut res = String::new();
     let mut iter = tokens.into_iter().peekable();
     while let Some(tok) = iter.next() {
         match tok {
             TokenTree::Punct(ref punct) => {
                 if punct.as_char() == '!' && iter.peek().map(next_token_is_doc).unwrap_or(false) {
-                    // remove last `# ` by calling pop twice
-                    s.pop();
-                    s.pop();
+                    // inner doc comment here.
+                    // `res` already has a `#` character at the last, which is unnecessary, so remove it by calling pop.
+                    assert_eq!(res.pop(), Some('#'));
 
                     let doc = iter.next().unwrap().to_string();
                     if let Some(c) = BLOCK_INNER_DOC_RE
@@ -334,17 +334,18 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                         c.as_str()
                             .replace("\\n", "\n")
                             .lines()
-                            .for_each(|line| s.push_str(format!("//!{}\n", line).as_str()));
+                            .for_each(|line| res.push_str(format!("//!{}\n", line).as_str()));
                     } else if let Some(c) = LINE_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // inner line doc
-                        s.push_str(format!("//!{}\n", c.as_str()).as_str());
+                        res.push_str(format!("//!{}\n", c.as_str()).as_str());
                     }
                 } else if punct.as_char() == '#'
                     && iter.peek().map(next_token_is_doc).unwrap_or(false)
                 {
+                    // outer doc comment here.
                     let doc = iter.next().unwrap().to_string();
                     if let Some(c) = BLOCK_OUTER_DOC_RE
                         .captures(doc.as_str())
@@ -354,41 +355,41 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                         c.as_str()
                             .replace("\\n", "\n")
                             .lines()
-                            .for_each(|line| s.push_str(format!("///{}\n", line).as_str()));
+                            .for_each(|line| res.push_str(format!("///{}\n", line).as_str()));
                     } else if let Some(c) = LINE_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // outer line doc
-                        s.push_str(format!("///{}\n", c.as_str()).as_str());
+                        res.push_str(format!("///{}\n", c.as_str()).as_str());
                     }
                 } else {
-                    s.push_str(tok.to_string().as_str());
+                    res.push_str(tok.to_string().as_str());
                 }
             }
             TokenTree::Group(ref g) => {
                 match g.delimiter() {
-                    Delimiter::Parenthesis => s.push('('),
-                    Delimiter::Brace => s.push('{'),
-                    Delimiter::Bracket => s.push('['),
+                    Delimiter::Parenthesis => res.push('('),
+                    Delimiter::Brace => res.push('{'),
+                    Delimiter::Bracket => res.push('['),
                     Delimiter::None => (),
                 }
-                s.push_str(stringify_tokens(g.stream()).as_str());
+                res.push_str(stringify_tokens(g.stream()).as_str());
                 match g.delimiter() {
-                    Delimiter::Parenthesis => s.push(')'),
-                    Delimiter::Brace => s.push('}'),
-                    Delimiter::Bracket => s.push(']'),
+                    Delimiter::Parenthesis => res.push(')'),
+                    Delimiter::Brace => res.push('}'),
+                    Delimiter::Bracket => res.push(']'),
                     Delimiter::None => (),
                 }
-                s.push(' ');
+                res.push(' ');
             }
             _ => {
-                s.push_str(tok.to_string().as_str());
-                s.push(' ');
+                res.push_str(tok.to_string().as_str());
+                res.push(' ');
             }
         }
     }
-    s
+    res
 }
 
 // Get snippet names and snippet code (not formatted)
