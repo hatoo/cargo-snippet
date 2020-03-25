@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
+#[derive(Debug)]
 pub struct SnippetAttributes {
     // A snippet with multiple names is allowed but using dependency is recommended.
     pub names: HashSet<String>,
@@ -9,6 +10,7 @@ pub struct SnippetAttributes {
     pub prefix: String,
 }
 
+#[derive(Debug)]
 pub struct Snippet {
     pub attrs: SnippetAttributes,
     // Snippet content (Not formated)
