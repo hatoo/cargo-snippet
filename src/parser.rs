@@ -1,11 +1,13 @@
 use lazy_static::lazy_static;
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use quote::ToTokens;
-use regex::Regex;
+use regex::{Captures, Regex};
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
 use crate::snippet::{Snippet, SnippetAttributes};
+use std::borrow::Cow;
 use std::collections::HashSet;
+use std::{char, u32};
 
 fn is_snippet_path(path: &str) -> bool {
     match path {
@@ -307,6 +309,19 @@ fn next_token_is_doc(token: &TokenTree) -> bool {
     }
 }
 
+fn unescape_unicode<'a>(s: &'a str) -> Cow<'a, str> {
+    lazy_static! {
+        static ref ESCAPED_UNICODE: Regex = Regex::new(r"\\u\{([0-9a-fA-F]{1,6})\}").unwrap();
+    }
+    ESCAPED_UNICODE.replace_all(s, |caps: &Captures| {
+        caps.get(1)
+            .and_then(|cap| u32::from_str_radix(cap.as_str(), 16).ok())
+            .and_then(|u| char::from_u32(u))
+            .map(|ch| ch.to_string())
+            .unwrap_or(caps[0].to_string())
+    })
+}
+
 fn stringify_tokens(tokens: TokenStream) -> String {
     lazy_static! {
         static ref BLOCK_OUTER_DOC_RE: Regex =
@@ -331,16 +346,15 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                         .and_then(|caps| caps.get(1))
                     {
                         // inner block doc
-                        c.as_str()
-                            .replace("\\n", "\n")
-                            .lines()
-                            .for_each(|line| res.push_str(format!("//!{}\n", line).as_str()));
+                        c.as_str().replace("\\n", "\n").lines().for_each(|line| {
+                            res.push_str(format!("//!{}\n", unescape_unicode(line)).as_str())
+                        });
                     } else if let Some(c) = LINE_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // inner line doc
-                        res.push_str(format!("//!{}\n", c.as_str()).as_str());
+                        res.push_str(format!("//!{}\n", unescape_unicode(c.as_str())).as_str());
                     }
                 } else if punct.as_char() == '#'
                     && iter.peek().map(next_token_is_doc).unwrap_or(false)
@@ -352,16 +366,15 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                         .and_then(|caps| caps.get(1))
                     {
                         // outer block doc
-                        c.as_str()
-                            .replace("\\n", "\n")
-                            .lines()
-                            .for_each(|line| res.push_str(format!("///{}\n", line).as_str()));
+                        c.as_str().replace("\\n", "\n").lines().for_each(|line| {
+                            res.push_str(format!("///{}\n", unescape_unicode(line)).as_str())
+                        });
                     } else if let Some(c) = LINE_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // outer line doc
-                        res.push_str(format!("///{}\n", c.as_str()).as_str());
+                        res.push_str(format!("///{}\n", unescape_unicode(c.as_str())).as_str());
                     }
                 } else {
                     res.push_str(tok.to_string().as_str());
@@ -460,7 +473,7 @@ pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::parse::Error> {
 
 #[cfg(test)]
 mod test {
-    use super::parse_snippet;
+    use super::{parse_snippet, unescape_unicode};
     use crate::snippet::process_snippets;
     use crate::writer::format_src;
     use quote::quote;
@@ -974,6 +987,92 @@ fn foo() {
         assert_eq!(
             format_src(snip["file"].as_str()).unwrap(),
             format_src("//! This is inner doc comment.\nfn foo() {}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_unicode_unescape() {
+        // cf. https://ja.wikipedia.org/wiki/%E3%82%B9%E3%83%9A%E3%83%BC%E3%82%B9
+        assert_eq!(unescape_unicode("foo\\u{2002}bar"), "foo bar"); // EN SPACE
+        assert_eq!(unescape_unicode("foo\\u{2003}bar"), "foo bar"); // EM SPACE
+        assert_eq!(unescape_unicode("foo\\u{2004}bar"), "foo bar"); // THREE-PER-EM SPACE
+        assert_eq!(unescape_unicode("foo\\u{2005}bar"), "foo bar"); // FOUR-PER-EM SPACE
+        assert_eq!(unescape_unicode("foo\\u{2006}bar"), "foo bar"); // SIX-PER-EM SPACE
+        assert_eq!(unescape_unicode("foo\\u{2007}bar"), "foo bar"); // FIGURE SPACE
+        assert_eq!(unescape_unicode("foo\\u{2008}bar"), "foo bar"); // PUNCTUATION SPACE
+        assert_eq!(unescape_unicode("foo\\u{2009}bar"), "foo bar"); // THIN SPACE
+        assert_eq!(unescape_unicode("foo\\u{200A}bar"), "foo bar"); // HAIR SPACE
+        assert_eq!(unescape_unicode("foo\\u{200B}bar"), "foo\u{200B}bar"); // ZERO WIDTH SPACE
+        assert_eq!(unescape_unicode("foo\\u{3000}bar"), "foo　bar"); // IDEOGRAPHIC SPACE
+    }
+
+    #[test]
+    fn test_full_width_space_in_outer_line_doc() {
+        let src = r#"
+            #[snippet]
+            /// [　] <- full width space
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("/// [　] <- full width space\nfn foo() {}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_full_width_space_in_outer_block_doc() {
+        let src = r#"
+#[snippet]
+/** 
+[　] <- full width space
+*/
+fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("///\n///[　] <- full width space\nfn foo() {}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_full_width_space_in_inner_line_doc() {
+        let src = r#"
+            #[snippet]
+            fn foo() {
+                //! [　] <- full width space
+            }
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("fn foo() {\n//! [　] <- full width space\n}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_full_width_space_in_inner_block_doc() {
+        let src = r#"
+#[snippet]
+fn foo() {
+/*!
+[　] <- full width space
+*/
+}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("fn foo() {\n//!\n//![　] <- full width space\n}").unwrap(),
         );
     }
 }
