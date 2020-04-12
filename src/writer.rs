@@ -78,7 +78,12 @@ pub fn write_vscode(snippets: &BTreeMap<String, String>) {
                     name.to_owned(),
                     VScode {
                         prefix: name.to_owned(),
-                        body: formatted.lines().map(|l| l.to_owned()).collect(),
+                        body: formatted
+                            .lines()
+                            .map(|l|
+                                // Escape "$" to disable placeholder
+                                l.to_owned().replace("$", "\\$"))
+                            .collect(),
                     },
                 )
             })
