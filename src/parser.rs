@@ -340,7 +340,9 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                     // `res` already has a `#` character at the last, which is unnecessary, so remove it by calling pop.
                     assert_eq!(res.pop(), Some('#'));
 
-                    let doc = iter.next().unwrap().to_string();
+                    // I'm not sure for this replacement.
+                    // It could be a bug of proc_macro2.
+                    let doc = iter.next().unwrap().to_string().replace("\\\\", "\\");
                     if let Some(c) = BLOCK_INNER_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
@@ -360,7 +362,9 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                     && iter.peek().map(next_token_is_doc).unwrap_or(false)
                 {
                     // outer doc comment here.
-                    let doc = iter.next().unwrap().to_string();
+                    // I'm not sure for this replacement.
+                    // It could be a bug of proc_macro2.
+                    let doc = iter.next().unwrap().to_string().replace("\\\\", "\\");
                     if let Some(c) = BLOCK_OUTER_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
@@ -975,6 +979,26 @@ fn foo() {
     }
 
     #[test]
+    fn test_outer_line_doc_in_file_backslash() {
+        let src = r#"
+            #![snippet("file")]
+            /// ///\\\ This is outer doc comment.
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src(
+                r#"/// ///\\\ This is outer doc comment.
+            fn foo() {}"#
+            )
+            .unwrap(),
+        );
+    }
+
+    #[test]
     fn test_inner_line_doc_in_file() {
         let src = r#"
             #![snippet("file")]
@@ -987,6 +1011,26 @@ fn foo() {
         assert_eq!(
             format_src(snip["file"].as_str()).unwrap(),
             format_src("//! This is inner doc comment.\nfn foo() {}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_inner_line_doc_in_file_backslash() {
+        let src = r#"
+            #![snippet("file")]
+            //! ///\\\ This is outer doc comment.
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src(
+                r#"//! ///\\\ This is outer doc comment.
+            fn foo() {}"#
+            )
+            .unwrap(),
         );
     }
 
