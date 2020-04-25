@@ -5,7 +5,6 @@ use regex::{Captures, Regex};
 use syn::{parse_file, Attribute, File, Item, Meta, NestedMeta};
 
 use crate::snippet::{Snippet, SnippetAttributes};
-use std::borrow::Cow;
 use std::collections::HashSet;
 use std::{char, u32};
 
@@ -309,25 +308,62 @@ fn next_token_is_doc(token: &TokenTree) -> bool {
     }
 }
 
-fn unescape_unicode<'a>(s: &'a str) -> Cow<'a, str> {
+fn unescape(s: impl Into<String>) -> String {
     lazy_static! {
         static ref ESCAPED_UNICODE: Regex = Regex::new(r"\\u\{([0-9a-fA-F]{1,6})\}").unwrap();
     }
-    ESCAPED_UNICODE.replace_all(s, |caps: &Captures| {
-        caps.get(1)
-            .and_then(|cap| u32::from_str_radix(cap.as_str(), 16).ok())
-            .and_then(|u| char::from_u32(u))
-            .map(|ch| ch.to_string())
-            .unwrap_or(caps[0].to_string())
-    })
+    let s = s.into();
+    let unicode_unescaped: Vec<char> = ESCAPED_UNICODE
+        .replace_all(&s, |caps: &Captures| {
+            caps.get(1)
+                .and_then(|cap| u32::from_str_radix(cap.as_str(), 16).ok())
+                .and_then(|u| char::from_u32(u))
+                .map(|ch| ch.to_string())
+                .unwrap_or(caps[0].to_string())
+        })
+        .chars()
+        .collect();
+
+    let mut ret = String::with_capacity(s.len());
+    let mut iter = unicode_unescaped.iter().peekable();
+    while let Some(&ch) = iter.next() {
+        if ch == '\\' {
+            match iter.peek() {
+                Some(&next_ch) if *next_ch == '\\' => {
+                    ret.push('\\');
+                    iter.next();
+                }
+                Some(&next_ch) if *next_ch == '"' => {
+                    ret.push('"');
+                    iter.next();
+                }
+                Some(&next_ch) if *next_ch == 't' => {
+                    ret.push('\t');
+                    iter.next();
+                }
+                Some(&next_ch) if *next_ch == 'n' => {
+                    ret.push('\n');
+                    iter.next();
+                }
+                Some(&next_ch) if *next_ch == 'r' => {
+                    ret.push('\r');
+                    iter.next();
+                }
+                _ => unreachable!(),
+            }
+        } else {
+            ret.push(ch);
+        }
+    }
+    ret
 }
 
 fn stringify_tokens(tokens: TokenStream) -> String {
     lazy_static! {
         static ref BLOCK_OUTER_DOC_RE: Regex =
-            Regex::new(r#"^\[doc = "(?:/\*\*)(.*)(?:\*/)"\]$"#).unwrap();
+            Regex::new(r#"^\[doc = "(?s)(?:/\*\*)(.*)(?:\*/)"\]$"#).unwrap();
         static ref BLOCK_INNER_DOC_RE: Regex =
-            Regex::new(r#"^\[doc = "(?:/\*!)(.*)(?:\*/)"\]$"#).unwrap();
+            Regex::new(r#"^\[doc = "(?s)(?:/\*!)(.*)(?:\*/)"\]$"#).unwrap();
         static ref LINE_DOC_RE: Regex = Regex::new(r#"^\[doc = "(.*)"\]$"#).unwrap();
     }
     let mut res = String::new();
@@ -340,45 +376,41 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                     // `res` already has a `#` character at the last, which is unnecessary, so remove it by calling pop.
                     assert_eq!(res.pop(), Some('#'));
 
-                    // I'm not sure for this replacement.
-                    // It could be a bug of proc_macro2.
-                    let doc = iter.next().unwrap().to_string().replace("\\\\", "\\");
+                    let doc = unescape(iter.next().unwrap().to_string());
                     if let Some(c) = BLOCK_INNER_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // inner block doc
-                        c.as_str().replace("\\n", "\n").lines().for_each(|line| {
-                            res.push_str(format!("//!{}\n", unescape_unicode(line)).as_str())
-                        });
+                        c.as_str()
+                            .lines()
+                            .for_each(|line| res.push_str(format!("//!{}\n", line).as_str()));
                     } else if let Some(c) = LINE_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // inner line doc
-                        res.push_str(format!("//!{}\n", unescape_unicode(c.as_str())).as_str());
+                        res.push_str(format!("//!{}\n", c.as_str()).as_str());
                     }
                 } else if punct.as_char() == '#'
                     && iter.peek().map(next_token_is_doc).unwrap_or(false)
                 {
                     // outer doc comment here.
-                    // I'm not sure for this replacement.
-                    // It could be a bug of proc_macro2.
-                    let doc = iter.next().unwrap().to_string().replace("\\\\", "\\");
+                    let doc = unescape(iter.next().unwrap().to_string());
                     if let Some(c) = BLOCK_OUTER_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // outer block doc
-                        c.as_str().replace("\\n", "\n").lines().for_each(|line| {
-                            res.push_str(format!("///{}\n", unescape_unicode(line)).as_str())
-                        });
+                        c.as_str()
+                            .lines()
+                            .for_each(|line| res.push_str(format!("///{}\n", line).as_str()));
                     } else if let Some(c) = LINE_DOC_RE
                         .captures(doc.as_str())
                         .and_then(|caps| caps.get(1))
                     {
                         // outer line doc
-                        res.push_str(format!("///{}\n", unescape_unicode(c.as_str())).as_str());
+                        res.push_str(format!("///{}\n", c.as_str()).as_str());
                     }
                 } else {
                     res.push_str(tok.to_string().as_str());
@@ -477,7 +509,7 @@ pub fn parse_snippet(src: &str) -> Result<Vec<Snippet>, syn::parse::Error> {
 
 #[cfg(test)]
 mod test {
-    use super::{parse_snippet, unescape_unicode};
+    use super::{parse_snippet, unescape};
     use crate::snippet::process_snippets;
     use crate::writer::format_src;
     use quote::quote;
@@ -979,20 +1011,20 @@ fn foo() {
     }
 
     #[test]
-    fn test_outer_line_doc_in_file_backslash() {
+    fn test_outer_line_doc_in_file_escaped_chars() {
         let src = r#"
-            #![snippet("file")]
-            /// ///\\\ This is outer doc comment.
-            fn foo() {}
-        "#;
+             #![snippet("file")]
+             /// ///\\\ 'This \t is \r outer " doc \n comment.
+             fn foo() {}
+         "#;
 
         let snip = snippets(&src);
         dbg!(&snip);
         assert_eq!(
             format_src(snip["file"].as_str()).unwrap(),
             format_src(
-                r#"/// ///\\\ This is outer doc comment.
-            fn foo() {}"#
+                r#"/// ///\\\ 'This \t is \r outer " doc \n comment.
+             fn foo() {}"#
             )
             .unwrap(),
         );
@@ -1035,19 +1067,39 @@ fn foo() {
     }
 
     #[test]
+    fn test_inner_line_doc_in_file_tab() {
+        let src = r#"
+            #![snippet("file")]
+            //! /// 	<- tab character
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src(
+                r#"//! /// 	<- tab character
+            fn foo() {}"#
+            )
+            .unwrap(),
+        );
+    }
+
+    #[test]
     fn test_unicode_unescape() {
         // cf. https://ja.wikipedia.org/wiki/%E3%82%B9%E3%83%9A%E3%83%BC%E3%82%B9
-        assert_eq!(unescape_unicode("foo\\u{2002}bar"), "foo bar"); // EN SPACE
-        assert_eq!(unescape_unicode("foo\\u{2003}bar"), "foo bar"); // EM SPACE
-        assert_eq!(unescape_unicode("foo\\u{2004}bar"), "foo bar"); // THREE-PER-EM SPACE
-        assert_eq!(unescape_unicode("foo\\u{2005}bar"), "foo bar"); // FOUR-PER-EM SPACE
-        assert_eq!(unescape_unicode("foo\\u{2006}bar"), "foo bar"); // SIX-PER-EM SPACE
-        assert_eq!(unescape_unicode("foo\\u{2007}bar"), "foo bar"); // FIGURE SPACE
-        assert_eq!(unescape_unicode("foo\\u{2008}bar"), "foo bar"); // PUNCTUATION SPACE
-        assert_eq!(unescape_unicode("foo\\u{2009}bar"), "foo bar"); // THIN SPACE
-        assert_eq!(unescape_unicode("foo\\u{200A}bar"), "foo bar"); // HAIR SPACE
-        assert_eq!(unescape_unicode("foo\\u{200B}bar"), "foo\u{200B}bar"); // ZERO WIDTH SPACE
-        assert_eq!(unescape_unicode("foo\\u{3000}bar"), "foo　bar"); // IDEOGRAPHIC SPACE
+        assert_eq!(unescape("foo\\u{2002}bar"), "foo bar"); // EN SPACE
+        assert_eq!(unescape("foo\\u{2003}bar"), "foo bar"); // EM SPACE
+        assert_eq!(unescape("foo\\u{2004}bar"), "foo bar"); // THREE-PER-EM SPACE
+        assert_eq!(unescape("foo\\u{2005}bar"), "foo bar"); // FOUR-PER-EM SPACE
+        assert_eq!(unescape("foo\\u{2006}bar"), "foo bar"); // SIX-PER-EM SPACE
+        assert_eq!(unescape("foo\\u{2007}bar"), "foo bar"); // FIGURE SPACE
+        assert_eq!(unescape("foo\\u{2008}bar"), "foo bar"); // PUNCTUATION SPACE
+        assert_eq!(unescape("foo\\u{2009}bar"), "foo bar"); // THIN SPACE
+        assert_eq!(unescape("foo\\u{200A}bar"), "foo bar"); // HAIR SPACE
+        assert_eq!(unescape("foo\\u{200B}bar"), "foo\u{200B}bar"); // ZERO WIDTH SPACE
+        assert_eq!(unescape("foo\\u{3000}bar"), "foo　bar"); // IDEOGRAPHIC SPACE
     }
 
     #[test]
