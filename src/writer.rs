@@ -49,6 +49,8 @@ pub fn format_src(src: &str) -> Option<String> {
 
     if !out.status.success() {
         log::error!("rustfmt returns non-zero status");
+        log::error!("[stdout]\n{}", String::from_utf8_lossy(&out.stdout));
+        log::error!("[stderr]\n{}", String::from_utf8_lossy(&out.stderr));
         return None;
     }
 
