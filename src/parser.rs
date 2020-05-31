@@ -374,6 +374,9 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                 if punct.as_char() == '!' && iter.peek().map(next_token_is_doc).unwrap_or(false) {
                     // inner doc comment here.
                     // `res` already has a `#` character at the last, which is unnecessary, so remove it by calling pop.
+                    if res.chars().last() == Some(' ') {
+                        res.pop();
+                    }
                     assert_eq!(res.pop(), Some('#'));
 
                     let doc = unescape(iter.next().unwrap().to_string());
@@ -414,6 +417,9 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                     }
                 } else {
                     res.push_str(tok.to_string().as_str());
+                    if punct.spacing() == proc_macro2::Spacing::Alone {
+                        res.push(' ');
+                    }
                 }
             }
             TokenTree::Group(ref g) => {
@@ -1169,6 +1175,22 @@ fn foo() {
         assert_eq!(
             format_src(snip["foo"].as_str()).unwrap(),
             format_src("fn foo() {\n//!\n//![　] <- full width space\n}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_divide_deref() {
+        let src = r#"
+#[snippet]
+fn foo(a: &i32, b: &i32) -> i32 {
+    *a / *b
+}
+        "#;
+        let snip = snippets(&src);
+        dbg!(&snip);
+        assert_eq!(
+            format_src(snip["foo"].as_str()).unwrap(),
+            format_src("fn foo(a: &i32, b: &i32) -> i32 { *a / *b }").unwrap(),
         );
     }
 }
