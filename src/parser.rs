@@ -1250,6 +1250,46 @@ fn foo() {
     }
 
     #[test]
+    fn test_doc_hidden_outer_line_in_file() {
+        let src = r#"
+            #![snippet("file", doc_hidden)]
+            /// comment
+            fn foo() {}
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src("fn foo() {}").unwrap(),
+        );
+    }
+
+    #[test]
+    fn test_doc_hidden_multiple_items_in_file() {
+        let src = r#"
+            #![snippet("file", doc_hidden)]
+
+            /// foo comment
+            fn foo() {}
+
+            fn bar() {
+                //! bar comment
+            }
+
+            /// baz outer
+            fn baz() {
+                //! baz inner
+            }
+        "#;
+
+        let snip = snippets(&src);
+        assert_eq!(
+            format_src(snip["file"].as_str()).unwrap(),
+            format_src("fn foo() {}\nfn bar() {}\nfn baz() {}").unwrap(),
+        );
+    }
+
+    #[test]
     fn test_doc_hidden_outer_line_with_other_metas() {
         let src = r#"
 /// comment
