@@ -8,6 +8,8 @@ pub struct SnippetAttributes {
     pub uses: HashSet<String>,
     // Prefix for snippet. It's will be emitted prior to the snippet.
     pub prefix: String,
+    // Whether doc comments associated with this snippet should be hidden or not.
+    pub doc_hidden: bool,
 }
 
 #[derive(Debug)]
