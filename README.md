@@ -79,6 +79,21 @@ fn gcd_list(list: &[u64]) -> u64 {
 #[snippet(prefix = "use std::str::FromStr;")]
 fn foo() {}
 
+// By default, doc comments associated with items will be output with the snippet.
+#[snippet]
+/// This is a document!
+fn documented() {
+    //! Inner document also works.
+}
+
+// If you want it to be hidden, append `doc_hidden` keyword.
+#[snippet(doc_hidden, prefix = "use std::collections::HashMap;")]
+/// This is a doc comment for `bar`.
+/// Since `doc_hidden` is specified, it won't be present in the snippet.
+fn bar() {
+    //! And this is also a doc comment for `bar`, which will be removed.
+}
+
 #[test]
 fn test_gcd() {
     assert_eq!(gcd(57, 3), 3);
@@ -104,6 +119,16 @@ snippet foo
     use std::io::{self, Read};
     use std::str::FromStr;
     fn foo() {}
+
+snippet documented
+    /// This is a document!
+    fn documented() {
+        //! Inner document also works.
+    }
+
+snippet bar
+    use std::collections::HashMap;
+    fn bar() {}
 
 snippet gcd
     fn gcd(a: u64, b: u64) -> u64 {
