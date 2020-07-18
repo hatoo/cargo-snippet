@@ -243,10 +243,18 @@ fn parse_attrs(
     attrs: &[Attribute],
     default_snippet_name: Option<String>,
 ) -> Option<SnippetAttributes> {
-    if !attrs
+    let meta_parsed = attrs
         .iter()
         .filter_map(|a| a.parse_meta().ok())
-        .any(|m| is_snippet_path(m.path().to_token_stream().to_string().as_str()))
+        .map(|m| {
+            let is_snippet_path = is_snippet_path(m.path().to_token_stream().to_string().as_str());
+            (m, is_snippet_path)
+        })
+        .collect::<Vec<_>>();
+
+    if meta_parsed
+        .iter()
+        .all(|&(_, is_snippet_path)| !is_snippet_path)
     {
         return None;
     }
@@ -256,15 +264,11 @@ fn parse_attrs(
         .filter_map(get_snippet_name)
         .collect::<HashSet<_>>();
 
-    let attr_snippet_without_value = attrs.iter().filter_map(|a| a.parse_meta().ok()).any(|m| {
-        if !is_snippet_path(m.path().to_token_stream().to_string().as_str()) {
+    let attr_snippet_without_value = meta_parsed.iter().any(|(meta, is_snippet_path)| {
+        if !is_snippet_path {
             return false;
         }
-
-        match m {
-            syn::Meta::Path(_) => true,
-            _ => false,
-        }
+        matches!(meta, Meta::Path(_))
     });
 
     if attr_snippet_without_value {
@@ -294,18 +298,16 @@ fn parse_attrs(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let doc_hidden = attrs.iter().filter_map(|a| a.parse_meta().ok()).any(|m| {
-        let is_snippet = is_snippet_path(m.path().to_token_stream().to_string().as_str());
-        let doc_hidden = match m {
-            Meta::List(MetaList { ref nested, .. }) => nested.iter().any(|n| match n {
-                NestedMeta::Meta(Meta::Path(ref p)) => {
-                    p.to_token_stream().to_string() == "doc_hidden"
-                }
-                _ => false,
-            }),
+    let doc_hidden = meta_parsed.iter().any(|(meta, is_snippet_path)| {
+        if !is_snippet_path {
+            return false;
+        }
+        match meta {
+            Meta::List(MetaList { ref nested, .. }) => nested.iter().any(|n|
+                matches!(n, NestedMeta::Meta(Meta::Path(ref p)) if p.to_token_stream().to_string() == "doc_hidden")
+            ),
             _ => false,
-        };
-        is_snippet && doc_hidden
+        }
     });
 
     Some(SnippetAttributes {
