@@ -358,14 +358,28 @@ fn unescape(s: impl Into<String>) -> String {
     ret
 }
 
-fn stringify_tokens(tokens: TokenStream) -> String {
+fn format_doc_comment(doc_tt: TokenTree, is_inner: bool) -> Option<String> {
     lazy_static! {
-        static ref BLOCK_OUTER_DOC_RE: Regex =
-            Regex::new(r#"^\[doc = "(?s)(?:/\*\*)(.*)(?:\*/)"\]$"#).unwrap();
-        static ref BLOCK_INNER_DOC_RE: Regex =
-            Regex::new(r#"^\[doc = "(?s)(?:/\*!)(.*)(?:\*/)"\]$"#).unwrap();
-        static ref LINE_DOC_RE: Regex = Regex::new(r#"^\[doc = "(.*)"\]$"#).unwrap();
+        static ref DOC_RE: Regex = Regex::new(r#"^\[doc = "(?s)(.*)"\]$"#).unwrap();
     }
+    let doc = unescape(doc_tt.to_string());
+    DOC_RE
+        .captures(doc.as_str())
+        .and_then(|caps| caps.get(1))
+        .map(|c| {
+            c.as_str().lines().fold(String::new(), |mut acc, line| {
+                let s = if is_inner {
+                    format!("//!{}\n", line)
+                } else {
+                    format!("///{}\n", line)
+                };
+                acc.push_str(&s);
+                acc
+            })
+        })
+}
+
+fn stringify_tokens(tokens: TokenStream) -> String {
     let mut res = String::new();
     let mut iter = tokens.into_iter().peekable();
     while let Some(tok) = iter.next() {
@@ -378,42 +392,15 @@ fn stringify_tokens(tokens: TokenStream) -> String {
                         res.pop();
                     }
                     assert_eq!(res.pop(), Some('#'));
-
-                    let doc = unescape(iter.next().unwrap().to_string());
-                    if let Some(c) = BLOCK_INNER_DOC_RE
-                        .captures(doc.as_str())
-                        .and_then(|caps| caps.get(1))
-                    {
-                        // inner block doc
-                        c.as_str()
-                            .lines()
-                            .for_each(|line| res.push_str(format!("//!{}\n", line).as_str()));
-                    } else if let Some(c) = LINE_DOC_RE
-                        .captures(doc.as_str())
-                        .and_then(|caps| caps.get(1))
-                    {
-                        // inner line doc
-                        res.push_str(format!("//!{}\n", c.as_str()).as_str());
+                    if let Some(doc) = format_doc_comment(iter.next().unwrap(), true).as_deref() {
+                        res.push_str(doc);
                     }
                 } else if punct.as_char() == '#'
                     && iter.peek().map(next_token_is_doc).unwrap_or(false)
                 {
                     // outer doc comment here.
-                    let doc = unescape(iter.next().unwrap().to_string());
-                    if let Some(c) = BLOCK_OUTER_DOC_RE
-                        .captures(doc.as_str())
-                        .and_then(|caps| caps.get(1))
-                    {
-                        // outer block doc
-                        c.as_str()
-                            .lines()
-                            .for_each(|line| res.push_str(format!("///{}\n", line).as_str()));
-                    } else if let Some(c) = LINE_DOC_RE
-                        .captures(doc.as_str())
-                        .and_then(|caps| caps.get(1))
-                    {
-                        // outer line doc
-                        res.push_str(format!("///{}\n", c.as_str()).as_str());
+                    if let Some(doc) = format_doc_comment(iter.next().unwrap(), false).as_deref() {
+                        res.push_str(doc);
                     }
                 } else {
                     res.push_str(tok.to_string().as_str());
