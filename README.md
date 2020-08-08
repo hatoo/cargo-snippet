@@ -6,7 +6,7 @@
 
 A snippet extractor for competitive programmers.
 
-You can manage code snippet with test and bench !!
+This allows you to manage your code snippets with tests and benchmarks available !!
 
 ## Installing
 
@@ -27,22 +27,20 @@ $ cargo install cargo-snippet --features="binaries"
 Create a project for snippet.
 
 ```
-$ cargo new mysnippet
+$ cargo new --lib mysnippet
 ```
 
 Add dependencies to Cargo.toml.
 
 ```toml
 [dependencies]
-cargo-snippet = "0.5"
+cargo-snippet = "0.6"
 ```
 
-Add this to src/lib.rs.
+Note: `cargo-snippet` on dependencies is needed just for register `#[snippet]` attribute to prevent the error from the compiler.
+All logics that extract snippet is in the binary package which is installed by `Installing` section.
 
-Note: `cargo-snippet` on dependencies is needed just for register `#[snippet]` attribute to prevent error from the compiler.
-All logic that extract snippet is in binary package which is installed by `Installing` section.
-
-Write some snippet codes and tests.
+Then write some snippet codes and tests.
 
 ```rust
 use cargo_snippet::snippet;
@@ -86,7 +84,7 @@ fn documented() {
     //! Inner document also works.
 }
 
-// If you want it to be hidden, append `doc_hidden` keyword.
+// If you want doc comment to be hidden, append `doc_hidden` keyword.
 #[snippet(doc_hidden, prefix = "use std::collections::HashMap;")]
 /// This is a doc comment for `bar`.
 /// Since `doc_hidden` is specified, it won't be present in the snippet.
@@ -105,7 +103,7 @@ fn test_lcm() {
 }
 ```
 
-You can test.
+You can test as always:
 
 ```
 $ cargo test
